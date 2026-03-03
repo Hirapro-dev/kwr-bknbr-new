@@ -34,7 +34,7 @@ export async function GET(
   } catch {
     const post = await prisma.post.findUnique({ where: { slug: id }, select: selectWithoutPickup });
       if (!post) return NextResponse.json({ error: "記事が見つかりません" }, { status: 404 });
-      return NextResponse.json({ ...post, isPickup: false, showForGeneral: true, showForFull: true });
+      return NextResponse.json({ ...post, isPickup: false, showForGen: true, showForVip: true, showForVC: false });
     }
   }
 
@@ -46,7 +46,7 @@ export async function GET(
     // 旧カラムがない時のフォールバック
     const post = await prisma.post.findUnique({ where: { id: numId }, select: selectWithoutPickup });
     if (!post) return NextResponse.json({ error: "記事が見つかりません" }, { status: 404 });
-    return NextResponse.json({ ...post, isPickup: false, showForGeneral: true, showForFull: true });
+    return NextResponse.json({ ...post, isPickup: false, showForGen: true, showForVip: true, showForVC: false });
   }
 }
 
@@ -60,7 +60,7 @@ export async function PUT(
   const { id } = await params;
   try {
     const body = await request.json();
-    const { title, content, excerpt, eyecatch, published, scheduledAt, writerId, isPickup, showForGeneral, showForFull } = body;
+    const { title, content, excerpt, eyecatch, published, scheduledAt, writerId, isPickup, showForGen, showForVip, showForVC } = body;
 
     const isScheduled = scheduledAt && new Date(scheduledAt) > new Date();
 
@@ -71,16 +71,18 @@ export async function PUT(
       eyecatch?: string | null;
       published?: boolean;
       isPickup?: boolean;
-      showForGeneral?: boolean;
-      showForFull?: boolean;
+      showForGen?: boolean;
+      showForVip?: boolean;
+      showForVC?: boolean;
       scheduledAt?: Date | null;
       writerId?: number | null;
     } = {
       eyecatch: eyecatch || undefined,
       published: isScheduled ? false : (published ?? undefined),
       isPickup: isPickup !== undefined ? !!isPickup : undefined,
-      showForGeneral: showForGeneral !== undefined ? !!showForGeneral : undefined,
-      showForFull: showForFull !== undefined ? !!showForFull : undefined,
+      showForGen: showForGen !== undefined ? !!showForGen : undefined,
+      showForVip: showForVip !== undefined ? !!showForVip : undefined,
+      showForVC: showForVC !== undefined ? !!showForVC : undefined,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       writerId: writerId !== undefined ? (writerId ? parseInt(writerId) : null) : undefined,
     };
@@ -99,7 +101,7 @@ export async function PUT(
       return NextResponse.json(post);
     } catch {
       // 旧カラムがない時は該当フィールドを外して再試行
-      const { isPickup: _o1, showForGeneral: _o2, showForFull: _o3, ...dataFallback } = data;
+      const { isPickup: _o1, showForGen: _o2, showForVip: _o3, showForVC: _o4, ...dataFallback } = data;
       const post = await prisma.post.update({
         where: { id: parseInt(id) },
         data: dataFallback,
@@ -108,8 +110,9 @@ export async function PUT(
       return NextResponse.json({
         ...post,
         isPickup: isPickup !== undefined ? !!isPickup : false,
-        showForGeneral: showForGeneral !== undefined ? !!showForGeneral : true,
-        showForFull: showForFull !== undefined ? !!showForFull : true,
+        showForGen: showForGen !== undefined ? !!showForGen : true,
+        showForVip: showForVip !== undefined ? !!showForVip : true,
+        showForVC: showForVC !== undefined ? !!showForVC : false,
       });
     }
   } catch {

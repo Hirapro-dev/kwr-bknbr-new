@@ -12,13 +12,15 @@ export async function PUT(
   if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   try {
     const body = await request.json();
-    const { label, url, imageUrl, order } = body;
+    const { label, url, imageUrl, order, media } = body;
+    const validMedia = media && ["all", "gen", "vip", "vc"].includes(media) ? media : undefined;
     const banner = await prisma.banner.update({
       where: { id },
       data: {
         ...(label !== undefined && { label: String(label) }),
         ...(url !== undefined && { url: String(url) }),
         ...(imageUrl !== undefined && { imageUrl: imageUrl ? String(imageUrl) : null }),
+        ...(validMedia !== undefined && { media: validMedia }),
         ...(typeof order === "number" && { order }),
       },
     });

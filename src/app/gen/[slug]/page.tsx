@@ -28,26 +28,26 @@ type Post = {
   eyecatch: string | null;
   published: boolean;
   createdAt: Date;
-  showForFull?: boolean;
+  showForGen?: boolean;
   writer?: Writer | null;
 };
 
-async function getPost(slug: string): Promise<(Post & { showForFull?: boolean }) | null> {
+async function getPost(slug: string): Promise<(Post & { showForGen?: boolean }) | null> {
   try {
     return await prisma.post.findUnique({
       where: { slug },
       include: { writer: true },
-    }) as (Post & { showForFull?: boolean }) | null;
+    }) as (Post & { showForGen?: boolean }) | null;
   } catch {
     const row = await prisma.post.findUnique({
       where: { slug },
       select: {
         id: true, title: true, slug: true, content: true, excerpt: true,
         eyecatch: true, published: true, createdAt: true, writerId: true,
-        writer: true, showForFull: true,
+        writer: true, showForGen: true,
       },
     });
-    return row as (Post & { showForFull?: boolean }) | null;
+    return row as (Post & { showForGen?: boolean }) | null;
   }
 }
 
@@ -74,14 +74,14 @@ function similarityScore(textA: string, textB: string): number {
 
 async function getRecommendedPosts(slug: string): Promise<Omit<Post, "content">[]> {
   const current = await prisma.post.findUnique({
-    where: { slug, published: true, showForFull: true },
+    where: { slug, published: true, showForGen: true },
     select: { id: true, excerpt: true, content: true },
   });
   if (!current) return [];
 
   const currentText = toComparableText(current.excerpt, current.content);
   const candidates = await prisma.post.findMany({
-    where: { published: true, showForFull: true, id: { not: current.id } } as Prisma.PostWhereInput,
+    where: { published: true, showForGen: true, id: { not: current.id } } as Prisma.PostWhereInput,
     orderBy: { createdAt: "desc" },
     take: 40,
     select: {
@@ -99,7 +99,7 @@ async function getRecommendedPosts(slug: string): Promise<Omit<Post, "content">[
   return withScore.slice(0, 3).map(({ score: _s, ...p }) => p);
 }
 
-export default async function VPostPage({
+export default async function GenPostPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -109,15 +109,15 @@ export default async function VPostPage({
   const post = await getPost(slug);
 
   if (!post || !post.published) notFound();
-  if (post.showForFull === false) notFound();
+  if (post.showForGen === false) notFound();
 
   const recommendedPosts = await getRecommendedPosts(post.slug);
   const isHtml = post.content.includes("<") && post.content.includes(">");
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <Header variant="full" homeHref="/v" />
-      <ClickTracker postId={post.id} source="full" />
+      <Header variant="gen" homeHref="/gen" />
+      <ClickTracker postId={post.id} source="gen" />
 
       <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full">
 
@@ -174,14 +174,14 @@ export default async function VPostPage({
             <h2 className="text-xl font-black text-black mb-6">あなたにおすすめの記事</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
               {recommendedPosts.map((p) => (
-                <PostCard key={p.id} post={p} variant="grid" basePath="/v" />
+                <PostCard key={p.id} post={p} variant="grid" basePath="/gen" />
               ))}
             </div>
           </section>
         )}
 
         <Link
-          href="/v"
+          href="/gen"
           className="inline-flex items-center gap-1 text-sm text-black/40 hover:text-black transition-colors mb-4"
         >
           <FiArrowLeft size={14} />

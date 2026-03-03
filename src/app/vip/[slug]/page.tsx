@@ -7,6 +7,7 @@ import PostCard from "@/components/PostCard";
 import ClickTracker from "@/components/ClickTracker";
 import { formatDate } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -27,37 +28,34 @@ type Post = {
   eyecatch: string | null;
   published: boolean;
   createdAt: Date;
+  showForVip?: boolean;
   writer?: Writer | null;
 };
 
-async function getPost(slug: string): Promise<Post | null> {
+async function getPost(slug: string): Promise<(Post & { showForVip?: boolean }) | null> {
   try {
-    return await prisma.post.findUnique({ where: { slug }, include: { writer: true } });
+    return await prisma.post.findUnique({
+      where: { slug },
+      include: { writer: true },
+    }) as (Post & { showForVip?: boolean }) | null;
   } catch {
-    // isPickup カラムがまだない（マイグレーション未実行）時のフォールバック
-    const selectWithoutPickup = {
-      id: true,
-      title: true,
-      slug: true,
-      content: true,
-      excerpt: true,
-      eyecatch: true,
-      published: true,
-      createdAt: true,
-      writerId: true,
-      writer: true,
-    };
-    return prisma.post.findUnique({ where: { slug }, select: selectWithoutPickup });
+    const row = await prisma.post.findUnique({
+      where: { slug },
+      select: {
+        id: true, title: true, slug: true, content: true, excerpt: true,
+        eyecatch: true, published: true, createdAt: true, writerId: true,
+        writer: true, showForVip: true,
+      },
+    });
+    return row as (Post & { showForVip?: boolean }) | null;
   }
 }
 
-/** HTMLタグを除去し、比較用テキストを先頭N文字に切り詰める */
 function toComparableText(excerpt: string | null, content: string, maxLen = 1200): string {
   const raw = (excerpt || content).replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
   return raw.slice(0, maxLen);
 }
 
-/** 2文字バイグラムの一致率で類似度（0〜1）を計算 */
 function similarityScore(textA: string, textB: string): number {
   if (!textA.trim() || !textB.trim()) return 0;
   const toNgrams = (s: string): Set<string> => {
@@ -74,17 +72,16 @@ function similarityScore(textA: string, textB: string): number {
   return a.size > 0 ? match / a.size : 0;
 }
 
-/** 表示中の記事に似た「おすすめ記事」を取得（タイトル類似度で算出） */
 async function getRecommendedPosts(slug: string): Promise<Omit<Post, "content">[]> {
   const current = await prisma.post.findUnique({
-    where: { slug, published: true },
+    where: { slug, published: true, showForVip: true },
     select: { id: true, excerpt: true, content: true },
   });
   if (!current) return [];
 
   const currentText = toComparableText(current.excerpt, current.content);
   const candidates = await prisma.post.findMany({
-    where: { published: true, id: { not: current.id } },
+    where: { published: true, showForVip: true, id: { not: current.id } } as Prisma.PostWhereInput,
     orderBy: { createdAt: "desc" },
     take: 40,
     select: {
@@ -99,11 +96,10 @@ async function getRecommendedPosts(slug: string): Promise<Omit<Post, "content">[
     return { ...rest, score: similarityScore(currentText, text) };
   });
   withScore.sort((a, b) => b.score - a.score);
-
   return withScore.slice(0, 3).map(({ score: _s, ...p }) => p);
 }
 
-export default async function PostPage({
+export default async function VipPostPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -113,14 +109,15 @@ export default async function PostPage({
   const post = await getPost(slug);
 
   if (!post || !post.published) notFound();
+  if (post.showForVip === false) notFound();
 
   const recommendedPosts = await getRecommendedPosts(post.slug);
   const isHtml = post.content.includes("<") && post.content.includes(">");
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <Header />
-      <ClickTracker postId={post.id} />
+      <Header variant="vip" homeHref="/vip" />
+      <ClickTracker postId={post.id} source="vip" />
 
       <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full">
 
@@ -177,14 +174,14 @@ export default async function PostPage({
             <h2 className="text-xl font-black text-black mb-6">あなたにおすすめの記事</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
               {recommendedPosts.map((p) => (
-                <PostCard key={p.id} post={p} variant="grid" />
+                <PostCard key={p.id} post={p} variant="grid" basePath="/vip" />
               ))}
             </div>
           </section>
         )}
 
-<Link
-          href="/"
+        <Link
+          href="/vip"
           className="inline-flex items-center gap-1 text-sm text-black/40 hover:text-black transition-colors mb-4"
         >
           <FiArrowLeft size={14} />

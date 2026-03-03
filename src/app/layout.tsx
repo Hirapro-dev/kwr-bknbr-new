@@ -9,7 +9,7 @@ const notoSansJP = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: "投資のiPSマーケット.com",
+  title: "投資のKAWARA版.com",
   description: "投資に関する最新情報をお届けするブログメディア",
 };
 

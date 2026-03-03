@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function VLayout({
+export default function VcLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return <>{children}</>;

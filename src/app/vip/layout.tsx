@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function GLayout({
+export default function VipLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return <>{children}</>;

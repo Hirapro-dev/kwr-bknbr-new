@@ -7,6 +7,7 @@ import { FiSave, FiEye, FiArrowLeft, FiUploadCloud, FiClock } from "react-icons/
 import { compressAndUpload } from "@/lib/upload";
 import { prettyPrintHtml, normalizeHtmlForVisual } from "@/lib/editor-html";
 import EditorToolbar from "@/components/EditorToolbar";
+import ThumbnailGenerator from "@/components/ThumbnailGenerator";
 
 type EditorMode = "visual" | "code";
 type CustomEditor = { id: number; name: string; icon: string; html: string };
@@ -41,8 +42,9 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
   const [writers, setWriters] = useState<Writer[]>([]);
   const [writerId, setWriterId] = useState("");
   const [isPickup, setIsPickup] = useState(false);
-  const [showForGeneral, setShowForGeneral] = useState(true);
-  const [showForFull, setShowForFull] = useState(true);
+  const [showForGen, setShowForGen] = useState(true);
+  const [showForVip, setShowForVip] = useState(true);
+  const [showForVC, setShowForVC] = useState(false);
   const [googleDocDialogOpen, setGoogleDocDialogOpen] = useState(false);
   const [googleDocUrl, setGoogleDocUrl] = useState("");
   const [googleDocLoading, setGoogleDocLoading] = useState(false);
@@ -67,8 +69,9 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
       if (res.ok) {
         const post = await res.json();
         setTitle(post.title); setContent(post.content); setEyecatch(post.eyecatch || ""); setPublished(post.published); setIsPickup(post.isPickup ?? false);
-        setShowForGeneral(post.showForGeneral !== false);
-        setShowForFull(post.showForFull !== false);
+        setShowForGen(post.showForGen !== false);
+        setShowForVip(post.showForVip !== false);
+        setShowForVC(post.showForVC === true);
         if (post.scheduledAt) { setScheduledAt(new Date(post.scheduledAt).toISOString().slice(0, 16)); setShowSchedule(true); }
         if (post.writerId) setWriterId(String(post.writerId));
       } else {
@@ -437,7 +440,7 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
       const finalContent = mode === "visual" && editorRef.current ? editorRef.current.innerHTML : content;
       const res = await fetch(`/api/posts/${id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content: finalContent, eyecatch: eyecatch || null, published: shouldPublish ?? published, isPickup, showForGeneral, showForFull, scheduledAt: scheduledAt || null, writerId: writerId || null }),
+        body: JSON.stringify({ title, content: finalContent, eyecatch: eyecatch || null, published: shouldPublish ?? published, isPickup, showForGen, showForVip, showForVC, scheduledAt: scheduledAt || null, writerId: writerId || null }),
       });
       if (res.ok) router.push("/admin/dashboard");
       else { const d = await res.json(); alert(d.error || "保存に失敗"); }
@@ -461,16 +464,16 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.push("/admin/dashboard")} className="p-2 text-slate-400 hover:text-blue-600 rounded-lg"><FiArrowLeft size={18} /></button>
-            <span className="font-bold text-sm text-slate-900">記事を編集</span>
+        <div className="max-w-6xl mx-auto px-2 md:px-4 h-12 md:h-14 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
+            <button onClick={() => router.push("/admin/dashboard")} className="p-1.5 md:p-2 text-slate-400 hover:text-blue-600 rounded-lg flex-shrink-0"><FiArrowLeft size={16} /></button>
+            <span className="font-bold text-xs md:text-sm text-slate-900 truncate">記事を編集</span>
           </div>
-          <div className="flex items-center gap-2">
-            {uploadProgress && <span className="text-xs text-blue-600 animate-pulse mr-2">{uploadProgress}</span>}
-            <button onClick={() => setShowSchedule(!showSchedule)} className={`p-2 rounded-lg transition-colors ${showSchedule ? "text-amber-600 bg-amber-50" : "text-slate-400 hover:text-amber-600"}`} title="公開日時を指定（未来なら予約）"><FiClock size={16} /></button>
-            <button onClick={() => handleSave(false)} disabled={saving || uploading} className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 flex items-center gap-1"><FiSave size={13} /> 下書き</button>
-            <button onClick={() => handleSave(true)} disabled={saving || uploading} className="px-3 py-1.5 text-xs bg-black hover:bg-black/80 text-white rounded-lg disabled:opacity-50 flex items-center gap-1"><FiEye size={13} /> 公開</button>
+          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+            {uploadProgress && <span className="text-[10px] md:text-xs text-blue-600 animate-pulse mr-1">{uploadProgress}</span>}
+            <button onClick={() => setShowSchedule(!showSchedule)} className={`p-1.5 md:p-2 rounded-lg transition-colors ${showSchedule ? "text-amber-600 bg-amber-50" : "text-slate-400 hover:text-amber-600"}`} title="公開日時を指定（未来なら予約）"><FiClock size={14} /></button>
+            <button onClick={() => handleSave(false)} disabled={saving || uploading} className="px-2 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 flex items-center gap-1"><FiSave size={12} /> <span className="hidden sm:inline">下書き</span><span className="sm:hidden">保存</span></button>
+            <button onClick={() => handleSave(true)} disabled={saving || uploading} className="px-2 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs bg-black hover:bg-black/80 text-white rounded-lg disabled:opacity-50 flex items-center gap-1"><FiEye size={12} /> 公開</button>
           </div>
         </div>
         {showSchedule && (
@@ -498,9 +501,10 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
         onInsertNote={insertNote} onInsertQuote={insertQuote} onInsertButton={insertButton}
         onInsertCustomHtml={insertHtml} />
 
-      <main className="max-w-4xl mx-auto px-4 py-8" style={{ paddingTop: showSchedule ? "160px" : "124px" }}>
+      {/* モバイル: ヘッダー48px + ツールバー約44px = 92px + 余白、デスクトップ: 56px + ツールバー約68px = 124px */}
+      <main className={`max-w-4xl mx-auto px-3 md:px-4 py-4 md:py-8 ${showSchedule ? "pt-[140px] md:pt-[160px]" : "pt-[104px] md:pt-[124px]"}`}>
         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="記事タイトルを入力..."
-          className="w-full text-2xl md:text-3xl font-black border-none outline-none bg-transparent mb-6 placeholder:text-slate-300" />
+          className="w-full text-xl md:text-2xl lg:text-3xl font-black border-none outline-none bg-transparent mb-4 md:mb-6 placeholder:text-slate-300" />
 
         {writers.length > 0 && (
           <div className="mb-6">
@@ -513,29 +517,38 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
           </div>
         )}
 
-        <div className="mb-6">
+        <div className="mb-4 md:mb-6">
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={isPickup} onChange={(e) => setIsPickup(e.target.checked)} className="rounded border-slate-300 text-amber-500 focus:ring-amber-400" />
-            <span className="text-sm font-medium text-slate-700">人気記事に設定する（トップの PickUp に表示）</span>
+            <span className="text-xs md:text-sm font-medium text-slate-700">人気記事<span className="hidden md:inline">に設定する（トップの PickUp に表示）</span></span>
           </label>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-4 md:mb-6">
           <p className="text-xs font-semibold text-slate-500 mb-2">表示先会員</p>
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={showForGeneral} onChange={(e) => setShowForGeneral(e.target.checked)} className="rounded border-slate-300 text-blue-500 focus:ring-blue-400" />
-              <span className="text-sm font-medium text-slate-700">一般会員（/g/）</span>
+          <div className="flex flex-wrap gap-3 md:gap-4">
+            <label className="flex items-center gap-1.5 md:gap-2 cursor-pointer">
+              <input type="checkbox" checked={showForGen} onChange={(e) => setShowForGen(e.target.checked)} className="rounded border-slate-300 text-blue-500 focus:ring-blue-400" />
+              <span className="text-xs md:text-sm font-medium text-slate-700">一般<span className="hidden md:inline">会員</span></span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={showForFull} onChange={(e) => setShowForFull(e.target.checked)} className="rounded border-slate-300 text-blue-500 focus:ring-blue-400" />
-              <span className="text-sm font-medium text-slate-700">正会員（/v/）</span>
+            <label className="flex items-center gap-1.5 md:gap-2 cursor-pointer">
+              <input type="checkbox" checked={showForVip} onChange={(e) => setShowForVip(e.target.checked)} className="rounded border-slate-300 text-blue-500 focus:ring-blue-400" />
+              <span className="text-xs md:text-sm font-medium text-slate-700">正会員</span>
+            </label>
+            <label className="flex items-center gap-1.5 md:gap-2 cursor-pointer">
+              <input type="checkbox" checked={showForVC} onChange={(e) => setShowForVC(e.target.checked)} className="rounded border-slate-300 text-blue-500 focus:ring-blue-400" />
+              <span className="text-xs md:text-sm font-medium text-slate-700">VC<span className="hidden md:inline">長者</span></span>
             </label>
           </div>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-4 md:mb-6">
           <label className="block text-xs font-semibold text-slate-500 mb-2">アイキャッチ画像</label>
+          <ThumbnailGenerator
+            title={title}
+            content={mode === "visual" && editorRef.current ? editorRef.current.innerHTML : content}
+            onApply={(url) => setEyecatch(url)}
+          />
           {eyecatch ? (
             <div className="relative rounded-lg overflow-hidden border border-slate-200">
               <div className="aspect-[16/9] relative"><Image src={eyecatch} alt="アイキャッチ" fill className="object-cover" sizes="800px" /></div>
@@ -544,9 +557,9 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
           ) : (
             <div onClick={() => eyecatchInputRef.current?.click()}
               onDragOver={(e) => { e.preventDefault(); setEyecatchDragOver(true); }} onDragLeave={() => setEyecatchDragOver(false)} onDrop={handleEyecatchDrop}
-              className={`w-full border-2 border-dashed rounded-lg py-10 flex flex-col items-center gap-2 cursor-pointer transition-colors ${eyecatchDragOver ? "border-blue-400 bg-blue-50/50" : "border-slate-200 hover:border-blue-400"}`}>
-              {uploading ? <><div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /><span className="text-blue-600 text-xs">{uploadProgress || "アップロード中..."}</span></> :
-              <><FiUploadCloud size={28} className="text-slate-300" /><span className="text-slate-400 text-xs">クリックまたはドラッグ&ドロップ</span></>}
+              className={`w-full border-2 border-dashed rounded-lg py-6 md:py-10 flex flex-col items-center gap-1.5 md:gap-2 cursor-pointer transition-colors ${eyecatchDragOver ? "border-blue-400 bg-blue-50/50" : "border-slate-200 hover:border-blue-400"}`}>
+              {uploading ? <><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /><span className="text-blue-600 text-xs">{uploadProgress || "アップロード中..."}</span></> :
+              <><FiUploadCloud size={24} className="text-slate-300" /><span className="text-slate-400 text-xs">タップして画像を選択</span></>}
             </div>
           )}
           <input ref={eyecatchInputRef} type="file" accept="image/*" onChange={handleEyecatchUpload} className="hidden" />
@@ -561,9 +574,9 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
           <div onDragOver={(e) => { e.preventDefault(); setEditorDragOver(true); }} onDragLeave={() => setEditorDragOver(false)} onDrop={handleEditorDrop} className="relative">
             {editorDragOver && <div className="absolute inset-0 bg-blue-50/80 border-2 border-dashed border-blue-400 rounded-lg z-10 flex items-center justify-center pointer-events-none"><FiUploadCloud size={36} className="text-blue-400" /></div>}
             {mode === "visual" ? (
-              <div ref={editorRef} contentEditable onInput={syncFromVisual} onKeyDown={handleEditorKeyDown} onKeyUp={saveSelectionIfInEditor} onMouseUp={saveSelectionIfInEditor} className="min-h-[500px] px-6 py-4 prose max-w-none outline-none" style={{ whiteSpace: "pre-wrap" }} />
+              <div ref={editorRef} contentEditable onInput={syncFromVisual} onKeyDown={handleEditorKeyDown} onKeyUp={saveSelectionIfInEditor} onMouseUp={saveSelectionIfInEditor} className="min-h-[300px] md:min-h-[500px] px-3 md:px-6 py-3 md:py-4 prose max-w-none outline-none" style={{ whiteSpace: "pre-wrap" }} />
             ) : (
-              <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="HTMLコードを入力...（&lt;p&gt;ごと改行・&lt;br&gt;で改行）" className="w-full min-h-[500px] px-6 py-4 font-mono text-sm bg-slate-900 text-green-400 outline-none resize-y leading-relaxed whitespace-pre-wrap" spellCheck={false} />
+              <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="HTMLコードを入力...（&lt;p&gt;ごと改行・&lt;br&gt;で改行）" className="w-full min-h-[300px] md:min-h-[500px] px-3 md:px-6 py-3 md:py-4 font-mono text-sm bg-slate-900 text-green-400 outline-none resize-y leading-relaxed whitespace-pre-wrap" spellCheck={false} />
             )}
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />

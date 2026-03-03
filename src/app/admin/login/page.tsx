@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiLock, FiUser, FiLogIn } from "react-icons/fi";
+import { FiLock, FiUser, FiLogIn, FiEye, FiEyeOff } from "react-icons/fi";
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -10,6 +10,7 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,11 +41,8 @@ export default function AdminLogin() {
     <div className="min-h-screen bg-bg flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-xl">iPS</span>
-          </div>
           <h1 className="text-2xl font-bold text-text">管理画面ログイン</h1>
-          <p className="text-text-light text-sm mt-1">投資のiPSマーケット.com</p>
+          <p className="text-text-light text-sm mt-1">投資の“KAWARA”版.com</p>
         </div>
 
         <form
@@ -81,13 +79,21 @@ export default function AdminLogin() {
             <div className="relative">
               <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light" size={18} />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm"
+                className="w-full pl-10 pr-12 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm"
                 placeholder="パスワードを入力"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-light hover:text-text transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+              </button>
             </div>
           </div>
 

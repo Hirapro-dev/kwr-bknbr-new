@@ -12,16 +12,16 @@ type PostCardProps = {
     writer?: { name: string; avatarUrl: string | null } | null;
   };
   variant?: "list" | "grid" | "pickup";
-  /** 指定時は記事リンクを /posts/slug ではなく basePath/slug にする（例: /v, /g） */
+  /** 記事リンクのベースパス（例: /gen, /vip, /vc） */
   basePath?: string;
 };
 
 export default function PostCard({ post, variant = "grid", basePath }: PostCardProps) {
-  const href = basePath ? `${basePath}/${post.slug}` : `/posts/${post.slug}`;
+  const href = basePath ? `${basePath}/${post.slug}` : `/gen/${post.slug}`;
   if (variant === "pickup") {
     return (
       <Link href={href} className="group block">
-        <article className="relative aspect-[16/10] rounded-lg overflow-hidden bg-black/20 shadow-md">
+        <article className="relative aspect-[16/9] rounded-lg overflow-hidden bg-black/20 shadow-md">
           {post.eyecatch ? (
             <Image
               src={post.eyecatch}
@@ -32,7 +32,7 @@ export default function PostCard({ post, variant = "grid", basePath }: PostCardP
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-200">
-              <span className="font-black text-4xl text-black/20">iPS</span>
+              <span className="font-black text-4xl text-black/20">KWR</span>
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
@@ -62,7 +62,7 @@ export default function PostCard({ post, variant = "grid", basePath }: PostCardP
     return (
       <Link href={href} className="group block">
         <article className="flex gap-6 py-8 border-b border-black/10">
-          <div className="w-[360px] shrink-0 aspect-[16/10] relative rounded-sm overflow-hidden bg-black/5">
+          <div className="w-[360px] shrink-0 aspect-[16/9] relative rounded-sm overflow-hidden bg-black/5">
             {post.eyecatch ? (
               <Image
                 src={post.eyecatch}
@@ -73,7 +73,7 @@ export default function PostCard({ post, variant = "grid", basePath }: PostCardP
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-black/5">
-                <span className="font-black text-3xl text-black/20">iPS</span>
+                <span className="font-black text-3xl text-black/20">KWR</span>
               </div>
             )}
           </div>
@@ -106,7 +106,7 @@ export default function PostCard({ post, variant = "grid", basePath }: PostCardP
   return (
     <Link href={href} className="group block">
       <article>
-        <div className="aspect-[16/10] relative rounded-sm overflow-hidden bg-black/5">
+        <div className="aspect-[16/9] relative rounded-sm overflow-hidden bg-black/5">
           {post.eyecatch ? (
             <Image
               src={post.eyecatch}
@@ -117,7 +117,7 @@ export default function PostCard({ post, variant = "grid", basePath }: PostCardP
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-black/5">
-              <span className="font-black text-2xl text-black/20">iPS</span>
+              <span className="font-black text-2xl text-black/20">KWR</span>
             </div>
           )}
         </div>

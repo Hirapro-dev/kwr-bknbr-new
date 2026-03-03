@@ -97,8 +97,9 @@ export default function EditorToolbar({
   onInsertYoutube, onInsertNote, onInsertQuote, onInsertButton, onInsertCustomHtml,
 }: ToolbarProps) {
   return (
-    <div className={`fixed top-14 left-0 right-0 z-40 border-b shadow-sm ${mode === "code" ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
-      <div className="max-w-4xl mx-auto px-4 py-1.5 flex items-center gap-0.5 flex-wrap">
+    <div className={`fixed top-12 md:top-14 left-0 right-0 z-40 border-b shadow-sm ${mode === "code" ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
+      {/* モバイル: 横スクロール（折り返しなし）、デスクトップ: 折り返し */}
+      <div className="max-w-4xl mx-auto px-2 md:px-4 py-1 md:py-1.5 flex items-center gap-0.5 overflow-x-auto md:overflow-x-visible md:flex-wrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <button onClick={onToggleMode}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${mode === "code" ? "bg-slate-800 text-white" : "bg-blue-50 text-blue-600"}`}>
           {mode === "visual" ? <><FiEye size={13} /> ビジュアル</> : <><FiCode size={13} /> コード</>}

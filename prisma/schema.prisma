@@ -17,8 +17,9 @@ model Post {
   eyecatch       String?
   published      Boolean    @default(false)
   isPickup       Boolean    @default(false)
-  showForGeneral Boolean    @default(true)
-  showForFull    Boolean    @default(true)
+  showForGen     Boolean    @default(true)
+  showForVip     Boolean    @default(true)
+  showForVC      Boolean    @default(false)
   scheduledAt    DateTime?
   views          Int        @default(0)
   writerId       Int?
@@ -45,6 +46,7 @@ model Click {
   postId    Int
   url       String
   label     String?
+  source    String?  // "gen" | "vip" | "vc" クリック元の媒体
   createdAt DateTime @default(now())
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 
@@ -55,7 +57,7 @@ model Click {
 model PageView {
   id        Int      @id @default(autoincrement())
   postId    Int
-  source    String?  // "public" | "general" | "full" 閲覧元（公開/一般会員/正会員）
+  source    String?  // "gen" | "vip" | "vc" 閲覧元（一般会員/正会員/仮想通貨長者）
   createdAt DateTime @default(now())
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 
@@ -78,6 +80,7 @@ model Banner {
   label    String
   url      String
   imageUrl String?
+  media    String @default("all") // "all" | "gen" | "vip" | "vc" 表示対象の媒体
   order    Int    @default(0)
 
   @@map("banners")

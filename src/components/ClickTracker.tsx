@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
-/** 閲覧元: 公開トップ / 一般会員(g) / 正会員(v) */
-export default function ClickTracker({ postId, source }: { postId: number; source?: "public" | "general" | "full" }) {
+/** 閲覧元: 一般会員(gen) / 正会員(vip) / 仮想通貨長者(vc) */
+export default function ClickTracker({ postId, source }: { postId: number; source: "gen" | "vip" | "vc" }) {
   const tracked = useRef(false);
 
   // 閲覧数記録（source で一般会員/正会員を別計測）
@@ -13,7 +13,7 @@ export default function ClickTracker({ postId, source }: { postId: number; sourc
     fetch("/api/analytics", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId, source: source ?? "public" }),
+      body: JSON.stringify({ postId, source }),
     }).catch(() => {});
   }, [postId, source]);
 
@@ -33,6 +33,7 @@ export default function ClickTracker({ postId, source }: { postId: number; sourc
           postId,
           url,
           label: link.textContent?.trim().slice(0, 100) || null,
+          source,
         }),
       }).catch(() => {});
     };

@@ -1,19 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   FiPlus, FiEdit2, FiTrash2, FiEye, FiEyeOff, FiLogOut, FiHome,
-  FiBarChart2, FiSettings, FiImage, FiUsers, FiClock, FiArrowUp, FiArrowDown, FiTrendingUp,
+  FiBarChart2, FiSettings, FiImage, FiUsers, FiClock, FiTrendingUp,
+  FiMousePointer,
 } from "react-icons/fi";
 import { formatDate } from "@/lib/utils";
 
 type Post = {
   id: number; title: string; slug: string; published: boolean;
   isPickup: boolean;
-  showForGeneral?: boolean;
-  showForFull?: boolean;
+  showForGen?: boolean;
+  showForVip?: boolean;
+  showForVC?: boolean;
   createdAt: string; excerpt: string | null; eyecatch: string | null;
   views: number; scheduledAt: string | null;
   writer?: { id: number; name: string } | null;
@@ -21,7 +23,22 @@ type Post = {
 
 type Writer = { id: number; name: string };
 type SortKey = "newest" | "oldest" | "views_desc" | "views_asc";
-type MemberFilter = "all" | "general" | "full";
+type MediaTab = "gen" | "vip" | "vc";
+
+// 媒体タブの定義
+const MEDIA_TABS: { key: MediaTab; label: string; color: string; bgColor: string; borderColor: string }[] = [
+  { key: "gen", label: "一般会員", color: "text-blue-700", bgColor: "bg-blue-50", borderColor: "border-blue-500" },
+  { key: "vip", label: "正会員", color: "text-emerald-700", bgColor: "bg-emerald-50", borderColor: "border-emerald-500" },
+  { key: "vc", label: "仮想通貨長者", color: "text-purple-700", bgColor: "bg-purple-50", borderColor: "border-purple-500" },
+];
+
+type StatsData = {
+  todayViews: number;
+  todayClicks: number;
+  last7DaysViews: number;
+  last7DaysClicks: number;
+  viewsByPost: Record<number, number>;
+};
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -31,7 +48,10 @@ export default function AdminDashboard() {
   const [sort, setSort] = useState<SortKey>("newest");
   const [writers, setWriters] = useState<Writer[]>([]);
   const [filterWriterId, setFilterWriterId] = useState<number | null>(null);
-  const [filterMember, setFilterMember] = useState<MemberFilter>("all");
+  const [activeTab, setActiveTab] = useState<MediaTab>("gen");
+  const [stats, setStats] = useState<StatsData>({
+    todayViews: 0, todayClicks: 0, last7DaysViews: 0, last7DaysClicks: 0, viewsByPost: {},
+  });
 
   useEffect(() => {
     checkAuth();
@@ -39,6 +59,27 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => { fetchPosts(); }, [sort]);
+
+  // 媒体タブ切り替え時に統計を取得
+  const fetchStats = useCallback(async (media: MediaTab) => {
+    try {
+      const res = await fetch(`/api/analytics?media=${media}`);
+      if (res.ok) {
+        const data = await res.json();
+        setStats({
+          todayViews: data.todayViews || 0,
+          todayClicks: data.todayClicks || 0,
+          last7DaysViews: data.last7DaysViews || 0,
+          last7DaysClicks: data.last7DaysClicks || 0,
+          viewsByPost: data.viewsByPost || {},
+        });
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    fetchStats(activeTab);
+  }, [activeTab, fetchStats]);
 
   const fetchWriters = async () => {
     try {
@@ -104,32 +145,58 @@ export default function AdminDashboard() {
     router.push("/admin/login");
   };
 
+  // 現在の媒体タブでフィルターされた記事
   const filteredPosts = posts
     .filter((p) => (filterWriterId ? p.writer?.id === filterWriterId : true))
     .filter((p) => {
-      if (filterMember === "all") return true;
-      if (filterMember === "general") return p.showForGeneral !== false;
-      if (filterMember === "full") return p.showForFull !== false;
+      if (activeTab === "gen") return p.showForGen !== false;
+      if (activeTab === "vip") return p.showForVip !== false;
+      if (activeTab === "vc") return p.showForVC === true;
       return true;
+    })
+    .sort((a, b) => {
+      // 閲覧数ソートの場合は媒体別の閲覧数で並べ替え
+      if (sort === "views_desc" && Object.keys(stats.viewsByPost).length > 0) {
+        return (stats.viewsByPost[b.id] || 0) - (stats.viewsByPost[a.id] || 0);
+      }
+      if (sort === "views_asc" && Object.keys(stats.viewsByPost).length > 0) {
+        return (stats.viewsByPost[a.id] || 0) - (stats.viewsByPost[b.id] || 0);
+      }
+      return 0; // その他のソートはAPI側の順序を維持
     });
-  const totalViews = filteredPosts.reduce((s, p) => s + p.views, 0);
+
+  // 媒体別の閲覧数を使って合計を算出（viewsByPostがある場合はそちらを優先）
+  const getPostViews = (postId: number) => {
+    if (Object.keys(stats.viewsByPost).length > 0) {
+      return stats.viewsByPost[postId] || 0;
+    }
+    return 0;
+  };
+  const totalViews = Object.keys(stats.viewsByPost).length > 0
+    ? filteredPosts.reduce((s, p) => s + getPostViews(p.id), 0)
+    : filteredPosts.reduce((s, p) => s + p.views, 0);
 
   const memberLabel = (p: Post) => {
-    const g = p.showForGeneral !== false;
-    const f = p.showForFull !== false;
-    if (g && f) return "一般・正";
-    if (g) return "一般";
-    if (f) return "正";
-    return "—";
+    const g = p.showForGen !== false;
+    const f = p.showForVip !== false;
+    const vc = p.showForVC === true;
+    const parts: string[] = [];
+    if (g) parts.push("一般");
+    if (f) parts.push("正");
+    if (vc) parts.push("VC");
+    return parts.length > 0 ? parts.join("・") : "—";
   };
+
+  const currentTabInfo = MEDIA_TABS.find((t) => t.key === activeTab)!;
+  // 媒体タブに応じた記事ページのベースパス
+  const mediaBasePath = `/${activeTab}`;
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Sidebar-style header */}
+      {/* ヘッダー */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="font-black text-xl">iPS</span>
             <span className="text-sm font-semibold text-slate-500">管理画面</span>
           </div>
           <div className="flex items-center gap-2">
@@ -144,31 +211,59 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* Stats */}
+        {/* 媒体タブ */}
+        <div className="flex gap-1 mb-6 bg-white rounded-lg border border-slate-200 p-1">
+          {MEDIA_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-all ${
+                activeTab === tab.key
+                  ? `${tab.bgColor} ${tab.color} shadow-sm`
+                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 統計カード（当日/7日間の閲覧数・クリック数） */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <p className="text-xs text-slate-400 font-medium">総記事数</p>
-            <p className="text-2xl font-black text-slate-900 mt-1">{filteredPosts.length}</p>
+          <div className={`bg-white rounded-lg border-l-4 ${currentTabInfo.borderColor} border border-slate-200 p-4`}>
+            <p className="text-xs text-slate-400 font-medium">当日の閲覧数</p>
+            <p className="text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
+              <FiEye size={18} className="text-slate-300" />
+              {stats.todayViews.toLocaleString()}
+            </p>
           </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <p className="text-xs text-slate-400 font-medium">公開中</p>
-            <p className="text-2xl font-black text-green-600 mt-1">{filteredPosts.filter(p => p.published).length}</p>
+          <div className={`bg-white rounded-lg border-l-4 ${currentTabInfo.borderColor} border border-slate-200 p-4`}>
+            <p className="text-xs text-slate-400 font-medium">当日のクリック数</p>
+            <p className="text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
+              <FiMousePointer size={18} className="text-slate-300" />
+              {stats.todayClicks.toLocaleString()}
+            </p>
           </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <p className="text-xs text-slate-400 font-medium">総閲覧数</p>
-            <p className="text-2xl font-black text-blue-600 mt-1">{totalViews.toLocaleString()}</p>
+          <div className={`bg-white rounded-lg border-l-4 ${currentTabInfo.borderColor} border border-slate-200 p-4`}>
+            <p className="text-xs text-slate-400 font-medium">直近7日間の閲覧数</p>
+            <p className="text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
+              <FiEye size={18} className="text-slate-300" />
+              {stats.last7DaysViews.toLocaleString()}
+            </p>
           </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <p className="text-xs text-slate-400 font-medium">予約投稿</p>
-            <p className="text-2xl font-black text-amber-600 mt-1">{filteredPosts.filter(p => p.scheduledAt && !p.published).length}</p>
+          <div className={`bg-white rounded-lg border-l-4 ${currentTabInfo.borderColor} border border-slate-200 p-4`}>
+            <p className="text-xs text-slate-400 font-medium">直近7日間のクリック数</p>
+            <p className="text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
+              <FiMousePointer size={18} className="text-slate-300" />
+              {stats.last7DaysClicks.toLocaleString()}
+            </p>
           </div>
         </div>
 
-        {/* Top bar */}
+        {/* ツールバー */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-black text-slate-900">記事管理</h1>
-            {/* Sort */}
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
@@ -178,15 +273,6 @@ export default function AdminDashboard() {
               <option value="oldest">古い順</option>
               <option value="views_desc">閲覧数 多い順</option>
               <option value="views_asc">閲覧数 少ない順</option>
-            </select>
-            <select
-              value={filterMember}
-              onChange={(e) => setFilterMember(e.target.value as MemberFilter)}
-              className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600 focus:outline-none focus:border-blue-400"
-            >
-              <option value="all">全会員</option>
-              <option value="general">一般会員向け</option>
-              <option value="full">正会員向け</option>
             </select>
             {writers.length > 0 && (
               <select
@@ -207,18 +293,19 @@ export default function AdminDashboard() {
           </Link>
         </div>
 
-        {/* Posts list */}
+        {/* 記事一覧 */}
         {loading ? (
           <div className="text-center py-20 text-slate-400">読み込み中...</div>
         ) : filteredPosts.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-lg border border-slate-200">
-            <p className="text-slate-400 text-lg mb-4">まだ記事がありません</p>
+            <p className="text-slate-400 text-lg mb-4">この媒体に該当する記事がありません</p>
             <Link href="/admin/posts/new" className="inline-flex items-center gap-2 bg-black text-white px-5 py-2 rounded-lg text-sm">
-              <FiPlus size={16} /> 最初の記事を作成
+              <FiPlus size={16} /> 新規記事を作成
             </Link>
           </div>
         ) : (
           <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+            {/* デスクトップテーブル */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
@@ -237,7 +324,7 @@ export default function AdminDashboard() {
                   {filteredPosts.map((post) => (
                     <tr key={post.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-5 py-3.5">
-                        <Link href={`/posts/${post.slug}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-slate-900 text-sm hover:text-blue-600 hover:underline">
+                        <Link href={`${mediaBasePath}/${post.slug}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-slate-900 text-sm hover:text-blue-600 hover:underline">
                           {post.title}
                         </Link>
                       </td>
@@ -272,7 +359,7 @@ export default function AdminDashboard() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-1 text-sm text-slate-500">
                           <FiTrendingUp size={13} />
-                          {post.views.toLocaleString()}
+                          {getPostViews(post.id).toLocaleString()}
                         </div>
                       </td>
                       <td className="px-5 py-3.5 text-sm text-slate-400">
@@ -297,13 +384,13 @@ export default function AdminDashboard() {
               </table>
             </div>
 
-            {/* Mobile */}
+            {/* モバイル */}
             <div className="md:hidden divide-y divide-slate-100">
               {filteredPosts.map((post) => (
                 <div key={post.id} className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <Link href={`/posts/${post.slug}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-slate-900 text-sm truncate block hover:text-blue-600 hover:underline">
+                      <Link href={`${mediaBasePath}/${post.slug}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-slate-900 text-sm truncate block hover:text-blue-600 hover:underline">
                         {post.title}
                       </Link>
                       {post.writer && (
@@ -326,7 +413,7 @@ export default function AdminDashboard() {
                           />
                           <span className="text-xs text-slate-600">人気</span>
                         </label>
-                        <span className="text-xs text-slate-400 flex items-center gap-1"><FiTrendingUp size={11} />{post.views}</span>
+                        <span className="text-xs text-slate-400 flex items-center gap-1"><FiTrendingUp size={11} />{getPostViews(post.id).toLocaleString()}</span>
                         <span className="text-xs text-slate-400">{formatDate(post.createdAt)}</span>
                       </div>
                     </div>
