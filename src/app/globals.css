@@ -1,0 +1,469 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-primary: #1e40af;
+  --color-primary-light: #3b82f6;
+  --color-primary-dark: #1e3a8a;
+  --color-accent: #0ea5e9;
+  --color-bg: #f8fafc;
+  --color-bg-card: #ffffff;
+  --color-text: #1e293b;
+  --color-text-light: #64748b;
+  --color-border: #e2e8f0;
+  --font-sans: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
+  /* 全ページで border-radius を 0 に統一 */
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  --radius-4xl: 0;
+  --radius-full: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  line-height: 1.8;
+}
+
+/* トップページ：テキストをヒラギノに統一 */
+.page-top {
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, "sans-serif";
+}
+
+/* ============================
+   ヘッダー用グラデーションボタン (.btn.btn-c)
+   ヘッダー h-14 に合わせたサイズ
+   ============================ */
+a.btn.btn-c {
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.75rem 2rem 0.75rem 2rem;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.3s;
+  text-align: center;
+  text-decoration: none;
+  letter-spacing: 0.05em;
+  color: #fff;
+  border-radius: 100vh;
+  background: linear-gradient(to right, #007adf 0%, #00ecbc 100%);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+a.btn.btn-c:hover {
+  transform: scale(1.05);
+  color: #fff;
+}
+a.btn.btn-c .btn-c-icon {
+  display: inline-flex;
+  align-items: center;
+  width: 1rem;
+  height: 1rem;
+}
+a.btn.btn-c .btn-c-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+@media (max-width: 640px) {
+  a.btn.btn-c {
+    font-size: 0.75rem;
+    padding: 0.75rem 1.5rem;
+  }
+  a.btn.btn-c .btn-c-icon,
+  a.btn.btn-c .btn-c-icon svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+
+/* 正会員 /v/ 用：ヘッダーお問い合わせボタンを赤グラデーション */
+a.btn.btn-c.btn-c-header--full {
+  background: linear-gradient(to right, #dc2626 0%, #f87171 50%, #fca5a5 100%) !important;
+}
+a.btn.btn-c.btn-c-header--full:hover {
+  color: #fff;
+}
+
+.prose h1 { font-size: 1.875rem; font-weight: 700; margin-bottom: 1rem; line-height: 1.3; }
+.prose h2 { font-size: 1.5rem; font-weight: 700; margin-top: 2rem; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--color-primary-light); }
+.prose h3 { font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+.prose p {
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 15px 0;
+}
+
+/* 記事詳細ページ：タイトル・見出し・本文のフォント統一 */
+.article-detail {
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, "sans-serif";
+}
+.article-detail > h1 {
+  font-size: 30px;
+  font-weight: 800;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, "sans-serif";
+}
+.article-detail [data-article-content] {
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, "sans-serif";
+}
+.article-detail [data-article-content] h2 {
+  box-sizing: inherit;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+  margin-top: 28px !important;
+  margin-bottom: 28px !important;
+  padding-top: 0 !important;
+  padding-bottom: 15px !important;
+  line-height: 29.6px !important;
+  border-bottom: 2px solid #bbb !important;
+}
+.article-detail [data-article-content] h3 {
+  font-size: 22px;
+  font-weight: 800;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.article-detail [data-article-content] h4 {
+  font-size: 20px;
+  font-weight: 800;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.article-detail [data-article-content] p {
+  font-size: 16px;
+  font-weight: 300;
+  line-height: 1.5;
+  padding: 15px 0;
+}
+.prose ul, .prose ol { margin-bottom: 1rem; padding-left: 1.5rem; }
+.prose ul { list-style: disc; }
+.prose ol { list-style: decimal; }
+.prose li {
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 15px 0;
+  margin-bottom: 0.25rem;
+}
+.prose a:not(.btn):not([style*="background"]) {
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 15px 0;
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.prose a:not(.btn):not([style*="background"]):hover { color: var(--color-primary-dark); }
+
+/* インラインスタイル付きボタン風リンク（style属性にbackgroundを含むa要素） */
+.prose a[style*="background"] {
+  text-decoration: none !important;
+  display: inline-block;
+  min-width: 350px;
+  font-size: 1rem !important;
+  padding: 0.75rem 1.5rem !important;
+  transition: all 0.3s;
+  text-align: center;
+  letter-spacing: 0.05em;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.prose a[style*="background"]:hover {
+  opacity: 0.85;
+  transform: scale(1.03);
+}
+@media (max-width: 768px) {
+  .prose a[style*="background"] {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+  }
+}
+/* 注釈・引用・ボタンラッパー・YouTube（クラスベースでコードを簡潔に） */
+.prose .note { padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 0.5rem 0.5rem 0; font-size: 0.9rem; border-left-width: 4px; border-left-style: solid; }
+.prose .note--blue { border-left-color: #3b82f6; background: #eff6ff; }
+.prose .note--green { border-left-color: #22c55e; background: #f0fdf4; }
+.prose .note--red { border-left-color: #ef4444; background: #fef2f2; }
+.prose .note--orange { border-left-color: #f97316; background: #fff7ed; }
+.prose .note--purple { border-left-color: #a855f7; background: #faf5ff; }
+.prose .note--gray { border-left-color: #6b7280; background: #f9fafb; }
+.prose .quote { padding: 1rem 1.25rem; margin: 1.5rem 0; background: #f8fafc; border-radius: 0 0.5rem 0.5rem 0; color: #64748b; font-style: italic; border-left-width: 4px; border-left-style: solid; }
+.prose .quote--blue { border-left-color: #3b82f6; }
+.prose .quote--green { border-left-color: #22c55e; }
+.prose .quote--red { border-left-color: #ef4444; }
+.prose .quote--orange { border-left-color: #f97316; }
+.prose .quote--purple { border-left-color: #a855f7; }
+.prose .quote--gray { border-left-color: #6b7280; }
+.prose .quote cite { font-size: 0.85rem; color: #94a3b8; display: block; margin-top: 0.5rem; }
+.prose .btn-wrap { text-align: center; margin: 1.5rem 0; }
+.prose .youtube-wrap { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; margin: 1.5rem 0; border-radius: 0.5rem; }
+.prose .youtube-wrap iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+
+.prose blockquote { border-left: 4px solid var(--color-primary-light); padding-left: 1rem; margin: 1.5rem 0; color: var(--color-text-light); font-style: italic; }
+.prose code { background: #f1f5f9; padding: 0.125rem 0.375rem; border-radius: 0; font-size: 0.875rem; }
+.prose pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0; margin: 1.5rem 0; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; }
+.prose pre code { background: none; padding: 0; color: inherit; white-space: inherit; }
+.prose img { max-width: 100%; border-radius: 0; margin: 1rem 0; }
+.prose table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.prose th, .prose td { border: 1px solid var(--color-border); padding: 0.5rem 0.75rem; text-align: left; }
+.prose th { background: #f1f5f9; font-weight: 600; }
+
+/* 記事詳細ページ：スマホでは <p> 内の通常 <br> を非表示（.sp-only はスマホで改行として表示） */
+@media (max-width: 768px) {
+  [data-article-content] p br:not(.sp-only) {
+    display: none;
+  }
+}
+
+/* ============================
+   記事内ボタン (.btn) - 本文フォントに合わせたサイズ・min-width 350px
+   ============================ */
+.prose .btn,
+.prose a.btn,
+.prose button.btn {
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  line-height: 1.5 !important;
+  position: relative;
+  display: inline-block !important;
+  min-width: 350px;
+  padding: 1rem 1.5rem !important;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.3s;
+  text-align: center !important;
+  vertical-align: middle;
+  text-decoration: none !important;
+  letter-spacing: 0.1em;
+  color: #212529 !important;
+  border-radius: 0.5rem !important;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* スマホ: 横幅いっぱい・min-width 解除 */
+@media (max-width: 768px) {
+  .prose .btn,
+  .prose a.btn,
+  .prose button.btn {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 1rem 1.25rem !important;
+    box-sizing: border-box;
+  }
+}
+
+/* ---- 青色グラデーション (btn-c) ---- */
+.prose a.btn-c,
+.prose a.btn.btn-c {
+  font-size: 1rem !important;
+  padding: 1.5rem 2.2rem !important;
+  min-width: 350px;
+  color: #fff !important;
+  border-radius: 100vh !important;
+  background: linear-gradient(to right, #007adf 0%, #00ecbc 100%) !important;
+  box-shadow: 0 10px 10px rgba(0, 0, 0, 0.2);
+}
+.prose a.btn-c::before {
+  content: "";
+  position: absolute;
+  top: calc(50% - 0.5rem);
+  right: 1rem;
+  width: 1rem;
+  height: 1rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.prose a.btn-c:hover {
+  transform: scale(1.05);
+  color: #fff !important;
+  opacity: 0.9;
+}
+
+/* ---- ブラックグラデーション (btn-k) ---- */
+.prose a.btn-k,
+.prose a.btn.btn-k {
+  font-size: 1rem !important;
+  padding: 1.5rem 2.2rem !important;
+  min-width: 350px;
+  color: #fff !important;
+  border-radius: 100vh !important;
+  background: linear-gradient(to right, #1f2937 0%, #374151 50%, #1f2937 100%) !important;
+  box-shadow: 0 10px 10px rgba(0, 0, 0, 0.2);
+}
+.prose a.btn-k::before {
+  content: "";
+  position: absolute;
+  top: calc(50% - 0.5rem);
+  right: 1rem;
+  width: 1rem;
+  height: 1rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.prose a.btn-k:hover {
+  transform: scale(1.05);
+  color: #fff !important;
+  opacity: 0.9;
+}
+
+/* ---- 赤色グラデーション (btn-r) ---- */
+.prose a.btn-r,
+.prose a.btn.btn-r {
+  font-size: 1rem !important;
+  padding: 1.5rem 2.2rem !important;
+  min-width: 350px;
+  color: #fff !important;
+  border-radius: 100vh !important;
+  background: linear-gradient(to right, #e53e3e 0%, #f56565 50%, #fc8181 100%) !important;
+  box-shadow: 0 10px 10px rgba(0, 0, 0, 0.2);
+}
+.prose a.btn-r::before {
+  content: "";
+  position: absolute;
+  top: calc(50% - 0.5rem);
+  right: 1rem;
+  width: 1rem;
+  height: 1rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.prose a.btn-r:hover {
+  transform: scale(1.05);
+  color: #fff !important;
+  opacity: 0.9;
+}
+
+/* ---- 緑色グラデーション (btn-g) ---- */
+.prose a.btn-g,
+.prose a.btn.btn-g {
+  font-size: 1rem !important;
+  padding: 1.5rem 2.2rem !important;
+  min-width: 350px;
+  color: #fff !important;
+  border-radius: 100vh !important;
+  background: linear-gradient(to right, #38a169 0%, #48bb78 50%, #68d391 100%) !important;
+  box-shadow: 0 10px 10px rgba(0, 0, 0, 0.2);
+}
+.prose a.btn-g::before {
+  content: "";
+  position: absolute;
+  top: calc(50% - 0.5rem);
+  right: 1rem;
+  width: 1rem;
+  height: 1rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.prose a.btn-g:hover {
+  transform: scale(1.05);
+  color: #fff !important;
+  opacity: 0.9;
+}
+
+/* ---- オレンジグラデーション (btn-o) ---- */
+.prose a.btn-o,
+.prose a.btn.btn-o {
+  font-size: 1rem !important;
+  padding: 1.5rem 2.2rem !important;
+  min-width: 350px;
+  color: #fff !important;
+  border-radius: 100vh !important;
+  background: linear-gradient(to right, #dd6b20 0%, #ed8936 50%, #f6ad55 100%) !important;
+  box-shadow: 0 10px 10px rgba(0, 0, 0, 0.2);
+}
+.prose a.btn-o::before {
+  content: "";
+  position: absolute;
+  top: calc(50% - 0.5rem);
+  right: 1rem;
+  width: 1rem;
+  height: 1rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.prose a.btn-o:hover {
+  transform: scale(1.05);
+  color: #fff !important;
+  opacity: 0.9;
+}
+
+/* ---- 紫色グラデーション (btn-p) ---- */
+.prose a.btn-p,
+.prose a.btn.btn-p {
+  font-size: 1rem !important;
+  padding: 1.5rem 2.2rem !important;
+  min-width: 350px;
+  color: #fff !important;
+  border-radius: 100vh !important;
+  background: linear-gradient(to right, #805ad5 0%, #9f7aea 50%, #b794f4 100%) !important;
+  box-shadow: 0 10px 10px rgba(0, 0, 0, 0.2);
+}
+.prose a.btn-p::before {
+  content: "";
+  position: absolute;
+  top: calc(50% - 0.5rem);
+  right: 1rem;
+  width: 1rem;
+  height: 1rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.prose a.btn-p:hover {
+  transform: scale(1.05);
+  color: #fff !important;
+  opacity: 0.9;
+}
+
+/* スマホ: 各色ボタンのpadding（上記の.btn-c等より後に書いて効かせる） */
+@media (max-width: 768px) {
+  .prose a.btn-c,
+  .prose a.btn.btn-c,
+  .prose a.btn-k,
+  .prose a.btn.btn-k,
+  .prose a.btn-r,
+  .prose a.btn.btn-r,
+  .prose a.btn-g,
+  .prose a.btn.btn-g,
+  .prose a.btn-o,
+  .prose a.btn.btn-o,
+  .prose a.btn-p,
+  .prose a.btn.btn-p {
+    padding: 1rem 2rem !important;
+  }
+}
+
+/* ---- スマホ改行ユーティリティ ---- */
+/* スマホだけ改行: <br class="sp-only"> を記事内に挿入すると、スマホ表示時のみその位置で改行 */
+.sp-only { display: none; }
+@media (max-width: 768px) {
+  .sp-only { display: block; height: 0; overflow: hidden; }
+  br.sp-only { display: block !important; height: auto; overflow: visible; }
+}
+/* PCだけ改行: <br class="pc-only"> */
+.pc-only { display: inline; }
+@media (max-width: 768px) {
+  .pc-only { display: none; }
+}

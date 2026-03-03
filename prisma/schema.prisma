@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Post {
+  id             Int        @id @default(autoincrement())
+  title          String
+  slug           String     @unique
+  content        String
+  excerpt        String?
+  eyecatch       String?
+  published      Boolean    @default(false)
+  isPickup       Boolean    @default(false)
+  showForGeneral Boolean    @default(true)
+  showForFull    Boolean    @default(true)
+  scheduledAt    DateTime?
+  views          Int        @default(0)
+  writerId       Int?
+  writer         Writer?    @relation(fields: [writerId], references: [id])
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  clicks         Click[]
+  pageViews      PageView[]
+
+  @@index([published, createdAt])
+  @@map("posts")
+}
+
+model Admin {
+  id       Int    @id @default(autoincrement())
+  username String @unique
+  password String
+
+  @@map("admins")
+}
+
+model Click {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  url       String
+  label     String?
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@map("clicks")
+}
+
+model PageView {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  source    String?  // "public" | "general" | "full" 閲覧元（公開/一般会員/正会員）
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@map("page_views")
+}
+
+model CustomEditor {
+  id    Int    @id @default(autoincrement())
+  name  String
+  icon  String
+  html  String
+  order Int    @default(0)
+
+  @@map("custom_editors")
+}
+
+model Banner {
+  id       Int    @id @default(autoincrement())
+  label    String
+  url      String
+  imageUrl String?
+  order    Int    @default(0)
+
+  @@map("banners")
+}
+
+model Writer {
+  id        Int     @id @default(autoincrement())
+  name      String
+  avatarUrl String?
+  order     Int     @default(0)
+  posts     Post[]
+
+  @@map("writers")
+}

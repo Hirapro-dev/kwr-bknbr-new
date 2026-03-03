@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "posts" ADD COLUMN "showForGeneral" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "posts" ADD COLUMN "showForFull" BOOLEAN NOT NULL DEFAULT true;
