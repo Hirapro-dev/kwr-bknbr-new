@@ -35,9 +35,9 @@ export default function PostCard({ post, variant = "grid", basePath }: PostCardP
               <span className="font-black text-4xl text-black/20">KWR</span>
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/20" />
           <div className="absolute inset-0 flex flex-col justify-end p-5 md:p-6">
-            <h2 className="text-lg md:text-xl font-bold text-white leading-snug line-clamp-2 drop-shadow-sm group-hover:opacity-90">
+            <h2 className="text-lg md:text-xl font-bold text-white leading-snug line-clamp-2 group-hover:opacity-90" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.8), 0 1px 3px rgba(0,0,0,0.6)" }}>
               {post.title}
             </h2>
             <div className="flex items-center gap-2 mt-3">

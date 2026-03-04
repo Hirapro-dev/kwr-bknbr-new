@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import {
   FiEye, FiCode, FiBold, FiItalic, FiList, FiLink, FiImage, FiType,
   FiAlignLeft, FiYoutube, FiMessageSquare, FiBookOpen, FiMousePointer,
-  FiChevronDown, FiStar,
+  FiChevronDown, FiStar, FiMoreHorizontal,
 } from "react-icons/fi";
 
 type EditorMode = "visual" | "code";
@@ -96,10 +96,117 @@ export default function EditorToolbar({
   onToggleMode, onExecCommand, onInsertHeading, onInsertLink, onInsertImage,
   onInsertYoutube, onInsertNote, onInsertQuote, onInsertButton, onInsertCustomHtml,
 }: ToolbarProps) {
+  const [mobileExpanded, setMobileExpanded] = useState(false);
   return (
     <div className={`fixed top-12 md:top-14 left-0 right-0 z-40 border-b shadow-sm ${mode === "code" ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
-      {/* モバイル: 横スクロール（折り返しなし）、デスクトップ: 折り返し */}
-      <div className="max-w-4xl mx-auto px-2 md:px-4 py-1 md:py-1.5 flex items-center gap-0.5 overflow-x-auto md:overflow-x-visible md:flex-wrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      {/* モバイル: 1行にモード切替+展開ボタン、デスクトップ: 従来通り折り返し */}
+      <div className="max-w-4xl mx-auto px-2 md:px-4 py-1 md:py-1.5">
+        {/* モバイル用: モード切替 + 展開ボタンを1行に */}
+        <div className="flex items-center gap-1 md:hidden">
+          <button onClick={onToggleMode}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${mode === "code" ? "bg-slate-800 text-white" : "bg-blue-50 text-blue-600"}`}>
+            {mode === "visual" ? <><FiEye size={12} /> ビジュアル</> : <><FiCode size={12} /> コード</>}
+          </button>
+          <button onClick={() => onInsertCustomHtml('<br class="sp-only">')}
+            className={`px-2 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${mode === "code" ? "text-slate-200 hover:bg-slate-600" : "text-slate-500 hover:text-blue-600 hover:bg-blue-50"}`} title="スマホでここ改行">
+            sp改行
+          </button>
+          <div className="flex-1" />
+          <button onClick={() => setMobileExpanded(!mobileExpanded)}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${mobileExpanded ? (mode === "code" ? "bg-slate-600 text-white" : "bg-blue-100 text-blue-700") : (mode === "code" ? "text-slate-300 hover:bg-slate-600" : "text-slate-500 hover:bg-blue-50")}`}>
+            <FiMoreHorizontal size={14} />
+            <span>{mobileExpanded ? "閉じる" : "ツール"}</span>
+          </button>
+        </div>
+        {/* モバイル用: 展開時のツール一覧 */}
+        {mobileExpanded && (
+          <div className="flex items-center gap-0.5 overflow-x-auto pt-1.5 pb-0.5 md:hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {mode === "code" ? (
+              <>
+                <button onClick={() => onInsertCustomHtml("<p><br></p>")} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors whitespace-nowrap" title="段落">p</button>
+                <button onClick={onInsertLink} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="リンク">a</button>
+                <button onClick={onInsertImage} disabled={uploading} className={`px-2 py-1.5 text-xs font-mono rounded transition-colors ${uploading ? "bg-slate-800 text-slate-500" : "bg-slate-700 hover:bg-slate-600 text-slate-200"}`} title="画像">img</button>
+                <button onClick={onInsertYoutube} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="YouTube">video</button>
+                <button onClick={() => onInsertCustomHtml("<h2></h2>")} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="H2">h2</button>
+                <button onClick={() => onInsertCustomHtml("<h3></h3>")} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="H3">h3</button>
+                <Dropdown label="引用" icon={<FiBookOpen size={14} />} dark>
+                  {BLOCK_COLORS.map((c) => (
+                    <DropdownItem key={c.label} onClick={() => onInsertQuote(c.border)}>
+                      <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm" style={{ background: c.border }} />{c.label}</span>
+                    </DropdownItem>
+                  ))}
+                </Dropdown>
+                <Dropdown label="注釈" icon={<FiMessageSquare size={14} />} dark>
+                  {BLOCK_COLORS.map((c) => (
+                    <DropdownItem key={c.label} onClick={() => onInsertNote(c.border)}>
+                      <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm" style={{ background: c.border }} />{c.label}</span>
+                    </DropdownItem>
+                  ))}
+                </Dropdown>
+                <Dropdown label="ボタン" icon={<FiMousePointer size={14} />} dark>
+                  {BUTTON_COLORS.map((c) => (
+                    <DropdownItem key={c.label} onClick={() => onInsertButton(JSON.stringify({ bg: c.bg, gradient: c.gradient, cls: c.cls }))}>
+                      <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm" style={{ background: c.gradient || c.bg }} />{c.label}</span>
+                    </DropdownItem>
+                  ))}
+                </Dropdown>
+              </>
+            ) : (
+              <>
+                <Dropdown label="見出し" icon={<FiType size={14} />}>
+                  <DropdownItem onClick={() => onInsertHeading(2)}>H2 見出し</DropdownItem>
+                  <DropdownItem onClick={() => onInsertHeading(3)}>H3 見出し</DropdownItem>
+                  <DropdownItem onClick={() => onInsertHeading(4)}>H4 見出し</DropdownItem>
+                  <DropdownItem onClick={() => onExecCommand("formatBlock", "p")}>段落</DropdownItem>
+                </Dropdown>
+                <Dropdown label="サイズ" icon={<span className="text-xs font-bold">A</span>}>
+                  <DropdownItem onClick={() => onExecCommand("fontSize", "1")}>極小</DropdownItem>
+                  <DropdownItem onClick={() => onExecCommand("fontSize", "2")}>小</DropdownItem>
+                  <DropdownItem onClick={() => onExecCommand("fontSize", "3")}>標準</DropdownItem>
+                  <DropdownItem onClick={() => onExecCommand("fontSize", "4")}>大</DropdownItem>
+                  <DropdownItem onClick={() => onExecCommand("fontSize", "5")}>特大</DropdownItem>
+                </Dropdown>
+                <button onClick={() => onExecCommand("bold")} className={TB} title="太字"><FiBold size={14} /></button>
+                <button onClick={() => onExecCommand("italic")} className={TB} title="斜体"><FiItalic size={14} /></button>
+                <button onClick={() => onExecCommand("underline")} className={TB} title="下線"><span className="text-xs font-bold underline">U</span></button>
+                <button onClick={() => onExecCommand("strikeThrough")} className={TB} title="取り消し線"><span className="text-xs font-bold line-through">S</span></button>
+                <ColorPicker label="文字色" icon={<span className="text-xs font-bold border-b-2 border-red-500">A</span>} onSelect={(c) => onExecCommand("foreColor", c)} />
+                <ColorPicker label="背景色" icon={<span className="text-xs font-bold bg-yellow-200 px-0.5 rounded">A</span>} onSelect={(c) => onExecCommand("hiliteColor", c)} />
+                <button onClick={onInsertLink} className={TB} title="リンク"><FiLink size={14} /></button>
+                <button onClick={onInsertImage} disabled={uploading} className={`${TB} disabled:opacity-50`} title="画像"><FiImage size={14} /></button>
+                <button onClick={onInsertYoutube} className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="YouTube"><FiYoutube size={14} /></button>
+                <Dropdown label="引用" icon={<FiBookOpen size={14} />}>
+                  {BLOCK_COLORS.map((c) => (
+                    <DropdownItem key={c.label} onClick={() => onInsertQuote(c.border)}>
+                      <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm" style={{ background: c.border }} />{c.label}</span>
+                    </DropdownItem>
+                  ))}
+                </Dropdown>
+                <Dropdown label="注釈" icon={<FiMessageSquare size={14} />}>
+                  {BLOCK_COLORS.map((c) => (
+                    <DropdownItem key={c.label} onClick={() => onInsertNote(c.border)}>
+                      <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm" style={{ background: c.border }} />{c.label}</span>
+                    </DropdownItem>
+                  ))}
+                </Dropdown>
+                <Dropdown label="ボタン" icon={<FiMousePointer size={14} />}>
+                  {BUTTON_COLORS.map((c) => (
+                    <DropdownItem key={c.label} onClick={() => onInsertButton(JSON.stringify({ bg: c.bg, gradient: c.gradient, cls: c.cls }))}>
+                      <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm" style={{ background: c.gradient || c.bg }} />{c.label}</span>
+                    </DropdownItem>
+                  ))}
+                </Dropdown>
+                {customEditors.length > 0 && customEditors.map((ce) => (
+                  <button key={ce.id} onClick={() => onInsertCustomHtml(ce.html)} className={TB} title={ce.name}>
+                    <span className="text-sm">{ce.icon || "⚡"}</span>
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+        {/* デスクトップ用: 従来通りのフルツールバー */}
+        <div className="hidden md:flex items-center gap-0.5 flex-wrap">
         <button onClick={onToggleMode}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${mode === "code" ? "bg-slate-800 text-white" : "bg-blue-50 text-blue-600"}`}>
           {mode === "visual" ? <><FiEye size={13} /> ビジュアル</> : <><FiCode size={13} /> コード</>}
@@ -261,7 +368,8 @@ export default function EditorToolbar({
             )}
           </>
         )}
-      </div>
+        </div>{/* デスクトップ用ツールバー閉じ */}
+      </div>{/* max-w-4xl wrapper 閉じ */}
     </div>
   );
 }

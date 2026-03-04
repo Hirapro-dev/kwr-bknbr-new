@@ -31,14 +31,29 @@ function escapeHtml(s: string): string {
 type TextStyle = {
   bold?: boolean;
   underline?: boolean;
+  link?: { url?: string };
   foregroundColor?: { rgbColor?: { red?: number; green?: number; blue?: number } };
   backgroundColor?: { rgbColor?: { red?: number; green?: number; blue?: number } };
 };
 
-function wrapTextRunStyle(text: string, style?: TextStyle): string {
-  if (!text) return "";
+// リンク付きテキストランの結果を表す型
+type TextRunResult = { html: string; isLink: boolean; linkUrl?: string };
+
+function wrapTextRunStyle(text: string, style?: TextStyle): TextRunResult {
+  if (!text) return { html: "", isLink: false };
   const escaped = escapeHtml(text);
-  if (!style) return escaped;
+  if (!style) return { html: escaped, isLink: false };
+
+  // リンクがある場合はボタン化対象としてマーク
+  const linkUrl = style.link?.url;
+  if (linkUrl) {
+    return {
+      html: escaped,
+      isLink: true,
+      linkUrl,
+    };
+  }
+
   let out = escaped;
   if (style.bold) out = `<strong>${out}</strong>`;
   if (style.underline) out = `<u>${out}</u>`;
@@ -52,7 +67,15 @@ function wrapTextRunStyle(text: string, style?: TextStyle): string {
     const hex = rgbToHex(bg.red ?? 0, bg.green ?? 0, bg.blue ?? 0);
     out = `<span style="background-color:${hex}">${out}</span>`;
   }
-  return out;
+  return { html: out, isLink: false };
+}
+
+// リンクテキストをbtn-wrapボタンHTMLに変換
+function linkToButton(text: string, url: string): string {
+  const escapedText = escapeHtml(text);
+  const escapedUrl = escapeHtml(url);
+  // sp-only改行を含めてスマホでも読みやすく
+  return `<div class="btn-wrap"><a href="${escapedUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-c">${escapedText}</a></div>`;
 }
 
 export async function POST(request: NextRequest) {
@@ -108,11 +131,20 @@ export async function POST(request: NextRequest) {
       else if (namedStyleType === "HEADING_3") blockTag = "h3";
       else if (namedStyleType === "HEADING_4") blockTag = "h4";
 
-      const parts: string[] = [];
+      // リンクテキストランを収集してボタンに変換
+      type PartItem = { type: "html"; html: string } | { type: "link"; text: string; url: string };
+      const parts: PartItem[] = [];
       for (const pe of para.elements as { textRun?: { content?: string; textStyle?: TextStyle }; inlineObjectElement?: { inlineObjectId?: string } }[]) {
         if (pe.textRun?.content != null) {
           const text = (pe.textRun.content as string).replace(/\n$/, "");
-          if (text) parts.push(wrapTextRunStyle(text, pe.textRun.textStyle));
+          if (text) {
+            const result = wrapTextRunStyle(text, pe.textRun.textStyle);
+            if (result.isLink && result.linkUrl) {
+              parts.push({ type: "link", text, url: result.linkUrl });
+            } else if (result.html) {
+              parts.push({ type: "html", html: result.html });
+            }
+          }
         }
         if (pe.inlineObjectElement?.inlineObjectId) {
           const objId = pe.inlineObjectElement.inlineObjectId;
@@ -129,20 +161,41 @@ export async function POST(request: NextRequest) {
                 const ext = "png";
                 const filename = `gd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
                 const imageUrl = await uploadToS3(buf, filename, "image/png");
-                parts.push(`<img src="${escapeHtml(imageUrl)}" alt="" />`);
+                parts.push({ type: "html", html: `<img src="${escapeHtml(imageUrl)}" alt="" />` });
               } else {
-                parts.push("[画像]");
+                parts.push({ type: "html", html: "[画像]" });
               }
             } catch {
-              parts.push("[画像]");
+              parts.push({ type: "html", html: "[画像]" });
             }
           } else {
-            parts.push("[画像]");
+            parts.push({ type: "html", html: "[画像]" });
           }
         }
       }
-      const inner = parts.join("");
-      if (inner) contentElements.push(`<${blockTag}>${inner}</${blockTag}>`);
+
+      // パラグラフ全体がリンクのみで構成されている場合はボタン化
+      const nonEmptyParts = parts.filter(p => p.type === "link" || (p.type === "html" && p.html.trim()));
+      const allLinks = nonEmptyParts.length > 0 && nonEmptyParts.every(p => p.type === "link");
+
+      if (allLinks) {
+        // リンクのみの段落 → 各リンクをボタンとして出力
+        for (const p of nonEmptyParts) {
+          if (p.type === "link") {
+            contentElements.push(linkToButton(p.text, p.url));
+          }
+        }
+      } else {
+        // 通常の段落（リンクが混在する場合はテキストリンクとして出力）
+        const innerParts = parts.map(p => {
+          if (p.type === "link") {
+            return `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.text)}</a>`;
+          }
+          return p.html;
+        });
+        const inner = innerParts.join("");
+        if (inner) contentElements.push(`<${blockTag}>${inner}</${blockTag}>`);
+      }
     }
 
     const content = contentElements.join("\n");

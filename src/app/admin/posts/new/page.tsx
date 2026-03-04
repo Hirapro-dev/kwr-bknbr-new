@@ -605,6 +605,27 @@ export default function NewPost() {
               <input type="text" value={buttonText} onChange={(e) => setButtonText(e.target.value)} placeholder="ボタンテキスト" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:border-blue-500" />
               <p className="text-xs text-slate-500 mb-2">「|」でスマホのみ改行、「||」でPC・スマホ両方で改行</p>
               <input type="url" value={buttonUrl} onChange={(e) => setButtonUrl(e.target.value)} placeholder="リンク先URL" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:border-blue-500" />
+              <div className="mb-3">
+                <label className="block text-xs text-slate-500 mb-1.5">ボタン色</label>
+                <div className="flex gap-2">
+                  {[
+                    { label: "ブルー", gradient: "linear-gradient(to right, #007adf, #00ecbc)", cls: "btn-c" },
+                    { label: "ブラック", gradient: "linear-gradient(to right, #1f2937, #374151, #1f2937)", cls: "btn-k" },
+                    { label: "グリーン", gradient: "linear-gradient(to right, #38a169, #48bb78, #68d391)", cls: "btn-g" },
+                    { label: "レッド", gradient: "linear-gradient(to right, #e53e3e, #f56565, #fc8181)", cls: "btn-r" },
+                    { label: "オレンジ", gradient: "linear-gradient(to right, #dd6b20, #ed8936, #f6ad55)", cls: "btn-o" },
+                    { label: "パープル", gradient: "linear-gradient(to right, #805ad5, #9f7aea, #b794f4)", cls: "btn-p" },
+                  ].map((c) => {
+                    const isActive = (() => { try { return JSON.parse(buttonColor).cls === c.cls; } catch { return false; } })();
+                    return (
+                      <button key={c.cls} type="button" title={c.label}
+                        onClick={() => setButtonColor(JSON.stringify({ cls: c.cls }))}
+                        className={`w-8 h-8 rounded-lg border-2 transition-all ${isActive ? "border-blue-500 scale-110 ring-2 ring-blue-200" : "border-slate-200 hover:scale-105"}`}
+                        style={{ background: c.gradient }} />
+                    );
+                  })}
+                </div>
+              </div>
               <label className="flex items-center gap-2 mb-4 cursor-pointer">
                 <input type="checkbox" checked={buttonNewTab} onChange={(e) => setButtonNewTab(e.target.checked)} className="rounded border-slate-300" />
                 <span className="text-sm text-slate-700">別タブで開く</span>
