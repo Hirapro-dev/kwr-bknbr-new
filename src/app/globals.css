@@ -143,6 +143,15 @@ a.btn.btn-c.btn-c-header--full:hover {
   line-height: 1.5;
   padding: 15px 0;
 }
+/* インラインスタイル装飾（太字・下線・色等） */
+.prose strong,
+.article-detail [data-article-content] strong { font-weight: 700 !important; }
+.prose u,
+.article-detail [data-article-content] u { text-decoration: underline !important; }
+.prose em,
+.article-detail [data-article-content] em { font-style: italic !important; }
+.prose span[style],
+.article-detail [data-article-content] span[style] { /* インラインスタイルを継承 */ }
 .prose ul, .prose ol { margin-bottom: 1rem; padding-left: 1.5rem; }
 .prose ul { list-style: disc; }
 .prose ol { list-style: decimal; }

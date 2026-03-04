@@ -110,7 +110,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "ドキュメントを取得できませんでした" }, { status: 400 });
     }
 
-    const title = data.title;
+    // ドキュメントメタデータのタイトルをフォールバックとして保持
+    const metaTitle = data.title;
+    let headingTitle: string | null = null; // 本文中のHEADING_1から抽出
     const contentElements: string[] = [];
 
     // body.content または tabs[0].documentTab.body.content（API のバージョンに依存）
@@ -125,6 +127,23 @@ export async function POST(request: NextRequest) {
       if (!para?.elements) continue;
 
       const namedStyleType = para.paragraphStyle?.namedStyleType ?? "NORMAL_TEXT";
+
+      // 最初のHEADING_1（タイトル）は本文から除外し、タイトルとして抽出
+      if (namedStyleType === "HEADING_1" && headingTitle === null) {
+        const titleParts: string[] = [];
+        for (const pe of para.elements as { textRun?: { content?: string } }[]) {
+          if (pe.textRun?.content != null) {
+            const text = (pe.textRun.content as string).replace(/\n$/, "");
+            if (text) titleParts.push(text);
+          }
+        }
+        const extracted = titleParts.join("").trim();
+        if (extracted) {
+          headingTitle = extracted;
+          continue; // この段落は本文に含めない
+        }
+      }
+
       let blockTag = "p";
       if (namedStyleType === "HEADING_1") blockTag = "h1";
       else if (namedStyleType === "HEADING_2") blockTag = "h2";
@@ -199,8 +218,21 @@ export async function POST(request: NextRequest) {
     }
 
     const content = contentElements.join("\n");
+    // HEADING_1から抽出したタイトルを優先、なければドキュメントメタデータのタイトル
+    const title = headingTitle || metaTitle;
 
-    return NextResponse.json({ title, content });
+    // 文字化け検出（連続する置換文字 U+FFFD や制御文字の混在をチェック）
+    const fullText = title + content;
+    const mojibakePatterns = [
+      /\ufffd{2,}/,                    // 連続する置換文字（U+FFFD）
+      /[\x00-\x08\x0e-\x1f]{2,}/,     // 連続する制御文字
+      /\ufffd/,                        // 単発の置換文字でも検出
+      /\u00c3[\u0080-\u00bf]{2,}/,     // UTF-8バイトがLatin-1として解釈されたパターン
+      /\u00e2\u0080[\u0090-\u00bf]{2,}/, // マルチバイト文字の誤変換パターン
+    ];
+    const hasMojibake = mojibakePatterns.some((p) => p.test(fullText));
+
+    return NextResponse.json({ title, content, hasMojibake });
   } catch (e) {
     const message = e instanceof Error ? e.message : "取り込みに失敗しました";
     if (message.includes("403") || message.includes("Permission")) {

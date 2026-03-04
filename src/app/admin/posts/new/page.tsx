@@ -91,6 +91,10 @@ export default function NewPost() {
       }
       setGoogleDocDialogOpen(false);
       setGoogleDocUrl("");
+      // 文字化け検出アラート
+      if (data.hasMojibake) {
+        alert("⚠️ 文字化けが検出されました。取り込んだ内容を確認してください。\n\nGoogle ドキュメントの元データに文字コードの問題がある可能性があります。");
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : "取り込みに失敗しました");
     } finally {
