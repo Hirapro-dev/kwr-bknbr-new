@@ -39,9 +39,22 @@ const VARIANT_CONFIG: Record<Variant, { label: string; logo: string; headerBg: s
   },
 };
 
-/** 外部画像URLをDataURLに変換（CORS対策） */
+/**
+ * 画像URLをDataURLに変換（CORS対策）
+ * S3等の外部画像 → プロキシAPI経由
+ * ローカル画像（/header_logo.png等） → 直接fetch
+ */
 async function toDataUrl(url: string): Promise<string> {
+  if (!url) return "";
   try {
+    // 外部URL（http/https）はプロキシAPI経由
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      const res = await fetch(`/api/image-proxy?url=${encodeURIComponent(url)}`);
+      if (!res.ok) return "";
+      const data = await res.json();
+      return data.dataUrl || "";
+    }
+    // ローカルパス（/header_logo.png等）は直接fetch
     const res = await fetch(url);
     const blob = await res.blob();
     return await new Promise((resolve, reject) => {
@@ -73,6 +86,8 @@ export default function LineImageGenerator({
     vc: null,
   });
   const [avatarDataUrl, setAvatarDataUrl] = useState<string>("");
+  // ロゴ画像のDataURLキャッシュ
+  const [logoDataUrls, setLogoDataUrls] = useState<Record<Variant, string>>({ gen: "", vip: "", vc: "" });
   // 現在レンダリング中の媒体（隠しDIV用）
   const [renderVariant, setRenderVariant] = useState<Variant>("gen");
   const templateRef = useRef<HTMLDivElement>(null);
@@ -83,7 +98,7 @@ export default function LineImageGenerator({
   if (showForVip) enabledVariants.push("vip");
   if (showForVC) enabledVariants.push("vc");
 
-  // アバター画像をDataURLに事前変換（CORS対策）
+  // アバター画像をDataURLに事前変換（CORS対策：プロキシAPI経由）
   useEffect(() => {
     if (writerAvatarUrl) {
       toDataUrl(writerAvatarUrl).then(setAvatarDataUrl);
@@ -92,8 +107,21 @@ export default function LineImageGenerator({
     }
   }, [writerAvatarUrl]);
 
+  // ロゴ画像をDataURLに事前変換（html-to-imageでの読み込みを確実にする）
+  useEffect(() => {
+    const loadLogos = async () => {
+      const results: Record<Variant, string> = { gen: "", vip: "", vc: "" };
+      for (const v of ["gen", "vip", "vc"] as Variant[]) {
+        results[v] = await toDataUrl(VARIANT_CONFIG[v].logo);
+      }
+      setLogoDataUrls(results);
+    };
+    loadLogos();
+  }, []);
+
   const bodyText = extractPlainText(content, 500);
   const currentConfig = VARIANT_CONFIG[renderVariant];
+  const currentLogoDataUrl = logoDataUrls[renderVariant];
 
   /** 指定媒体の画像を1枚生成 */
   const generateSingle = useCallback(async (v: Variant): Promise<string | null> => {
@@ -309,10 +337,9 @@ export default function LineImageGenerator({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={currentConfig.logo}
+            src={currentLogoDataUrl || currentConfig.logo}
             alt="logo"
             style={{ height: "40px", objectFit: "contain" }}
-            crossOrigin="anonymous"
           />
         </div>
 
@@ -356,12 +383,12 @@ export default function LineImageGenerator({
             </p>
           )}
 
-          {/* アバター画像 */}
-          {(avatarDataUrl || writerAvatarUrl) && (
+          {/* アバター画像（DataURLに変換済みのもののみ使用） */}
+          {avatarDataUrl && (
             <div style={{ margin: "0 0 40px 0" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={avatarDataUrl || writerAvatarUrl || ""}
+                src={avatarDataUrl}
                 alt={writerName}
                 style={{
                   width: "200px",
@@ -370,7 +397,6 @@ export default function LineImageGenerator({
                   objectFit: "cover",
                   border: "3px solid #e5e7eb",
                 }}
-                crossOrigin="anonymous"
               />
             </div>
           )}

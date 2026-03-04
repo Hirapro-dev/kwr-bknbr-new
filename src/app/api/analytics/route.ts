@@ -84,8 +84,18 @@ export async function GET(request: NextRequest) {
         viewsByDateRaw[key] = (viewsByDateRaw[key] || 0) + 1;
       });
 
+      // クリック数も同様に日付別にグループ化
+      const clicksByDateRaw: Record<string, number> = {};
+      clicks.forEach((c) => {
+        const key = groupBy === "month"
+          ? c.createdAt.toISOString().slice(0, 7)
+          : c.createdAt.toISOString().slice(0, 10);
+        clicksByDateRaw[key] = (clicksByDateRaw[key] || 0) + 1;
+      });
+
       // 日別・月別は全期間を0埋めして返す（グラフで棒が正しく並ぶように）
       const viewsByDate: Record<string, number> = {};
+      const clicksByDate: Record<string, number> = {};
       if (period === "daily" && dateFilter) {
         const start = new Date(dateFilter);
         start.setHours(0, 0, 0, 0);
@@ -94,6 +104,7 @@ export async function GET(request: NextRequest) {
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
           const key = d.toISOString().slice(0, 10);
           viewsByDate[key] = viewsByDateRaw[key] ?? 0;
+          clicksByDate[key] = clicksByDateRaw[key] ?? 0;
         }
       } else if (period === "monthly" && dateFilter) {
         const startYear = dateFilter.getFullYear();
@@ -106,10 +117,12 @@ export async function GET(request: NextRequest) {
           for (let m = mStart; m <= mEnd; m++) {
             const key = `${y}-${String(m + 1).padStart(2, "0")}`;
             viewsByDate[key] = viewsByDateRaw[key] ?? 0;
+            clicksByDate[key] = clicksByDateRaw[key] ?? 0;
           }
         }
       } else {
         Object.assign(viewsByDate, viewsByDateRaw);
+        Object.assign(clicksByDate, clicksByDateRaw);
       }
 
       const clicksByUrl: Record<string, { count: number; label: string | null }> = {};
@@ -118,7 +131,7 @@ export async function GET(request: NextRequest) {
         clicksByUrl[c.url].count++;
       });
 
-      return NextResponse.json({ post, viewsByDate, clicksByUrl, totalClicks: clicks.length });
+      return NextResponse.json({ post, viewsByDate, clicksByDate, clicksByUrl, totalClicks: clicks.length });
     }
 
     // 媒体フィルター

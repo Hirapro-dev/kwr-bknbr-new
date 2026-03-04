@@ -10,6 +10,7 @@ type Writer = { id: number; name: string };
 type PostDetail = {
   post: { id: number; title: string; views: number };
   viewsByDate: Record<string, number>;
+  clicksByDate: Record<string, number>;
   clicksByUrl: Record<string, { count: number; label: string | null }>;
   totalClicks: number;
 };
@@ -299,10 +300,40 @@ function AnalyticsContent() {
                     )}
                   </div>
 
-                  {/* クリック数 */}
+                  {/* クリック数推移グラフ */}
+                  <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 overflow-hidden">
+                    <div className="mb-2 flex items-center gap-2 text-slate-400"><FiMousePointer size={14} /><span className="text-xs font-semibold">クリック数推移</span></div>
+                    {!detail.clicksByDate || Object.keys(detail.clicksByDate).length === 0 ? (
+                      <p className="text-xs text-slate-300 py-4 text-center">クリックデータがありません</p>
+                    ) : (
+                      <div className="w-full min-w-0 overflow-x-auto">
+                        <div className="flex items-end gap-[2px] sm:gap-[3px] h-28 mt-2 min-w-0" style={{ minWidth: "min(100%, 320px)" }}>
+                          {(() => {
+                            const entries = Object.entries(detail.clicksByDate).sort(([a], [b]) => a.localeCompare(b));
+                            const maxVal = Math.max(...entries.map(([, v]) => v), 1);
+                            return entries.map(([date, count]) => (
+                              <div key={date} className="flex-1 min-w-0 flex flex-col items-center group relative" style={{ minWidth: "4px" }}>
+                                <div className="w-full max-w-[12px] mx-auto bg-orange-500 rounded-t-sm transition-all hover:bg-orange-600"
+                                  style={{ height: `${(count / maxVal) * 100}%`, minHeight: count > 0 ? "4px" : "1px" }} />
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                  {date}: {count}
+                                </div>
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                        <div className="flex justify-between mt-1 text-[10px] text-slate-300">
+                          <span>{Object.entries(detail.clicksByDate).sort(([a], [b]) => a.localeCompare(b))[0]?.[0] || ""}</span>
+                          <span>{Object.entries(detail.clicksByDate).sort(([a], [b]) => a.localeCompare(b)).at(-1)?.[0] || ""}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* リンク別クリック数 */}
                   <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 overflow-hidden">
                     <div className="flex items-center justify-between mb-3 min-w-0">
-                      <div className="flex items-center gap-2 text-slate-400 shrink-0"><FiMousePointer size={14} /><span className="text-xs font-semibold">リンククリック数</span></div>
+                      <div className="flex items-center gap-2 text-slate-400 shrink-0"><FiMousePointer size={14} /><span className="text-xs font-semibold">リンク別クリック数</span></div>
                       <span className="text-xs text-slate-400 shrink-0">合計 {detail.totalClicks}</span>
                     </div>
                     {Object.keys(detail.clicksByUrl).length === 0 ? (
