@@ -10,6 +10,7 @@ import {
   generateLineImage,
   DEFAULT_STYLES,
   VARIANT_CONFIG,
+  BTN_GRADIENT_PRESETS,
   type LineImageStyles,
   type Variant,
   type TextAlign,
@@ -149,9 +150,8 @@ export default function LineImageGenerator({
   const [styles, setStyles] = useState<LineImageStyles>({ ...DEFAULT_STYLES });
   const [codeText, setCodeText] = useState(stylesToCode(DEFAULT_STYLES));
 
-  // アバター・ロゴのDataURLキャッシュ
+  // アバターのDataURLキャッシュ
   const [avatarDataUrl, setAvatarDataUrl] = useState<string>("");
-  const [logoDataUrls, setLogoDataUrls] = useState<Record<Variant, string>>({ gen: "", vip: "", vc: "" });
 
   // 画像化の状態
   const [generating, setGenerating] = useState(false);
@@ -226,18 +226,6 @@ export default function LineImageGenerator({
     }
   }, [writerAvatarUrl]);
 
-  // ロゴ画像をDataURLに事前変換
-  useEffect(() => {
-    const loadLogos = async () => {
-      const results: Record<Variant, string> = { gen: "", vip: "", vc: "" };
-      for (const v of ["gen", "vip", "vc"] as Variant[]) {
-        results[v] = await toDataUrl(VARIANT_CONFIG[v].logo);
-      }
-      setLogoDataUrls(results);
-    };
-    loadLogos();
-  }, []);
-
   // activeVariant が enabledVariants に含まれない場合
   useEffect(() => {
     if (enabledVariants.length > 0 && !enabledVariants.includes(activeVariant)) {
@@ -259,7 +247,6 @@ export default function LineImageGenerator({
           body: editBody,
           writerName: editWriter,
           avatarDataUrl,
-          logoDataUrl: logoDataUrls[activeVariant],
         }, styles);
         setPreviewUrl(url);
       } catch (e) {
@@ -268,7 +255,7 @@ export default function LineImageGenerator({
       setPreviewLoading(false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [isOpen, activeVariant, editTitle, editBody, editWriter, avatarDataUrl, logoDataUrls, styles, enabledVariants, generatedImages]);
+  }, [isOpen, activeVariant, editTitle, editBody, editWriter, avatarDataUrl, styles, enabledVariants, generatedImages]);
 
   /** 全媒体の画像を一括生成（Canvas API） */
   const handleGenerateAll = useCallback(async () => {
@@ -285,7 +272,6 @@ export default function LineImageGenerator({
           body: editBody,
           writerName: editWriter,
           avatarDataUrl,
-          logoDataUrl: logoDataUrls[v],
         }, styles);
         results[v] = dataUrl;
       } catch (err) {
@@ -300,7 +286,7 @@ export default function LineImageGenerator({
     if (failCount > 0) {
       alert(`${failCount}件の画像生成に失敗しました。`);
     }
-  }, [enabledVariants, editTitle, editBody, editWriter, avatarDataUrl, logoDataUrls, styles]);
+  }, [enabledVariants, editTitle, editBody, editWriter, avatarDataUrl, styles]);
 
   /** ダウンロード */
   const handleDownload = (v: Variant) => {
@@ -503,10 +489,34 @@ export default function LineImageGenerator({
                         <ColorInput label="色" value={styles.bodyColor} onChange={(v) => updateStyle("bodyColor", v)} />
                       </fieldset>
 
-                      {/* ヘッダー・レイアウト */}
+                      {/* ヘッダー */}
                       <fieldset className="space-y-2 border border-slate-100 rounded-lg p-3">
-                        <legend className="text-[11px] font-semibold text-slate-500 px-1">ヘッダー・レイアウト</legend>
-                        <NumInput label="ヘッダー高" value={styles.headerHeight} onChange={(v) => updateStyle("headerHeight", v)} min={40} max={160} />
+                        <legend className="text-[11px] font-semibold text-slate-500 px-1">ヘッダー</legend>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-slate-500 w-20 shrink-0">テキスト</span>
+                          <input type="text" value={styles.headerText} onChange={(e) => updateStyle("headerText", e.target.value)}
+                            className="flex-1 text-xs border border-slate-200 rounded px-2 py-1" />
+                        </div>
+                        <NumInput label="フォントサイズ" value={styles.headerFontSize} onChange={(v) => updateStyle("headerFontSize", v)} min={16} max={60} />
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-slate-500 w-20 shrink-0">太さ</span>
+                          <select value={styles.headerFontWeight} onChange={(e) => updateStyle("headerFontWeight", e.target.value)}
+                            className="text-xs border border-slate-200 rounded px-2 py-1">
+                            <option value="400">通常 (400)</option>
+                            <option value="500">やや太 (500)</option>
+                            <option value="600">太い (600)</option>
+                            <option value="700">ボールド (700)</option>
+                            <option value="800">極太 (800)</option>
+                            <option value="900">最太 (900)</option>
+                          </select>
+                        </div>
+                        <ColorInput label="テキスト色" value={styles.headerTextColor} onChange={(v) => updateStyle("headerTextColor", v)} />
+                        <NumInput label="高さ" value={styles.headerHeight} onChange={(v) => updateStyle("headerHeight", v)} min={40} max={160} />
+                      </fieldset>
+
+                      {/* レイアウト */}
+                      <fieldset className="space-y-2 border border-slate-100 rounded-lg p-3">
+                        <legend className="text-[11px] font-semibold text-slate-500 px-1">レイアウト</legend>
                         <NumInput label="左右余白" value={styles.paddingX} onChange={(v) => updateStyle("paddingX", v)} min={20} max={120} />
                         <NumInput label="上余白" value={styles.paddingTop} onChange={(v) => updateStyle("paddingTop", v)} min={20} max={120} />
                         <ColorInput label="背景色" value={styles.bgColor} onChange={(v) => updateStyle("bgColor", v)} />
@@ -535,7 +545,13 @@ export default function LineImageGenerator({
                           </label>
                         </div>
                         {styles.avatarShow && (
-                          <NumInput label="サイズ" value={styles.avatarSize} onChange={(v) => updateStyle("avatarSize", v)} min={80} max={400} />
+                          <>
+                            <NumInput label="サイズ" value={styles.avatarSize} onChange={(v) => updateStyle("avatarSize", v)} min={80} max={400} />
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-slate-500 w-20 shrink-0">揃え</span>
+                              <AlignButtons value={styles.avatarAlign} onChange={(v) => updateStyle("avatarAlign", v)} />
+                            </div>
+                          </>
                         )}
                       </fieldset>
 
@@ -555,10 +571,53 @@ export default function LineImageGenerator({
                         <NumInput label="フォントサイズ" value={styles.btnFontSize} onChange={(v) => updateStyle("btnFontSize", v)} min={16} max={60} />
                         <NumInput label="左右パディング" value={styles.btnPaddingX} onChange={(v) => updateStyle("btnPaddingX", v)} min={20} max={160} />
                         <NumInput label="上下パディング" value={styles.btnPaddingY} onChange={(v) => updateStyle("btnPaddingY", v)} min={10} max={60} />
-                        <NumInput label="角丸" value={styles.btnRadius} onChange={(v) => updateStyle("btnRadius", v)} min={0} max={40} />
+                        <NumInput label="角丸" value={styles.btnRadius} onChange={(v) => updateStyle("btnRadius", v)} min={0} max={999} />
                         <ColorInput label="テキスト色" value={styles.btnTextColor} onChange={(v) => updateStyle("btnTextColor", v)} />
-                        <ColorInput label="背景色(左)" value={styles.btnBgFrom} onChange={(v) => updateStyle("btnBgFrom", v)} />
-                        <ColorInput label="背景色(右)" value={styles.btnBgTo} onChange={(v) => updateStyle("btnBgTo", v)} />
+                        {/* グラデーションプリセット */}
+                        <div>
+                          <span className="text-[11px] text-slate-500 block mb-1.5">グラデーション</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {BTN_GRADIENT_PRESETS.map((preset) => {
+                              const isActive = styles.btnBgFrom === preset.from && styles.btnBgMid === preset.mid && styles.btnBgTo === preset.to;
+                              return (
+                                <button
+                                  key={preset.key}
+                                  type="button"
+                                  onClick={() => {
+                                    setStyles((prev) => {
+                                      const next = { ...prev, btnBgFrom: preset.from, btnBgMid: preset.mid, btnBgTo: preset.to };
+                                      setCodeText(stylesToCode(next));
+                                      return next;
+                                    });
+                                  }}
+                                  className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg border transition-all ${
+                                    isActive
+                                      ? "border-blue-400 ring-2 ring-blue-200 bg-blue-50 font-semibold"
+                                      : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                                  }`}
+                                  title={preset.label}
+                                >
+                                  {/* グラデーションプレビュー丸 */}
+                                  <span
+                                    className="w-5 h-5 rounded-full border border-white shadow-sm shrink-0"
+                                    style={{ background: `linear-gradient(135deg, ${preset.from}, ${preset.mid}, ${preset.to})` }}
+                                  />
+                                  <span>{preset.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {/* カスタムカラー（詳細設定） */}
+                        <details className="mt-1">
+                          <summary className="text-[10px] text-slate-400 cursor-pointer hover:text-slate-600">カスタムカラー設定</summary>
+                          <div className="space-y-2 mt-2 pl-2 border-l-2 border-slate-100">
+                            <ColorInput label="開始色" value={styles.btnBgFrom} onChange={(v) => updateStyle("btnBgFrom", v)} />
+                            <ColorInput label="中間色" value={styles.btnBgMid} onChange={(v) => updateStyle("btnBgMid", v)} />
+                            <ColorInput label="終了色" value={styles.btnBgTo} onChange={(v) => updateStyle("btnBgTo", v)} />
+                            <ColorInput label="影の色" value={styles.btnShadowColor} onChange={(v) => updateStyle("btnShadowColor", v)} />
+                          </div>
+                        </details>
                       </fieldset>
                     </div>
                   ) : (

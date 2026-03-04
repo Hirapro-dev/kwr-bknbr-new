@@ -9,6 +9,10 @@ export type TextAlign = "left" | "center" | "right";
 export type LineImageStyles = {
   // ヘッダー
   headerHeight: number;
+  headerText: string;
+  headerFontSize: number;
+  headerFontWeight: string;
+  headerTextColor: string;
   // タイトル
   titleFontSize: number;
   titleFontWeight: string;
@@ -22,6 +26,7 @@ export type LineImageStyles = {
   // アバター
   avatarSize: number;
   avatarShow: boolean;
+  avatarAlign: TextAlign;
   // 本文
   bodyFontSize: number;
   bodyFontWeight: string;
@@ -35,9 +40,11 @@ export type LineImageStyles = {
   btnPaddingY: number;
   btnRadius: number;
   btnBgFrom: string;
+  btnBgMid: string;
   btnBgTo: string;
   btnTextColor: string;
   btnEmoji: string;
+  btnShadowColor: string;
   // 背景
   bgColor: string;
   // パディング
@@ -48,6 +55,10 @@ export type LineImageStyles = {
 /** デフォルトスタイル */
 export const DEFAULT_STYLES: LineImageStyles = {
   headerHeight: 80,
+  headerText: "KAWARA版",
+  headerFontSize: 32,
+  headerFontWeight: "700",
+  headerTextColor: "#ffffff",
   titleFontSize: 48,
   titleFontWeight: "900",
   titleLineHeight: 1.4,
@@ -58,6 +69,7 @@ export const DEFAULT_STYLES: LineImageStyles = {
   fromPrefix: "From：KAWARA版",
   avatarSize: 200,
   avatarShow: true,
+  avatarAlign: "left",
   bodyFontSize: 28,
   bodyFontWeight: "400",
   bodyLineHeight: 1.9,
@@ -67,11 +79,13 @@ export const DEFAULT_STYLES: LineImageStyles = {
   btnFontSize: 32,
   btnPaddingX: 80,
   btnPaddingY: 28,
-  btnRadius: 16,
-  btnBgFrom: "#f59e0b",
-  btnBgTo: "#fbbf24",
-  btnTextColor: "#000000",
-  btnEmoji: "👆",
+  btnRadius: 999,
+  btnBgFrom: "#dd6b20",
+  btnBgMid: "#ed8936",
+  btnBgTo: "#f6ad55",
+  btnTextColor: "#ffffff",
+  btnEmoji: "",
+  btnShadowColor: "rgba(0,0,0,0.15)",
   bgColor: "#ffffff",
   paddingX: 60,
   paddingTop: 60,
@@ -79,23 +93,30 @@ export const DEFAULT_STYLES: LineImageStyles = {
 
 export type Variant = "gen" | "vip" | "vc";
 
-export const VARIANT_CONFIG: Record<Variant, { label: string; logo: string; headerGradient: [string, string] }> = {
+export const VARIANT_CONFIG: Record<Variant, { label: string; headerGradient: [string, string] }> = {
   gen: {
     label: "一般会員",
-    logo: "/header_logo.png",
     headerGradient: ["#1e40af", "#3b82f6"],
   },
   vip: {
     label: "正会員",
-    logo: "/header_logo_vip.png",
     headerGradient: ["#991b1b", "#ef4444"],
   },
   vc: {
     label: "VC長者",
-    logo: "/header_logo_vc.png",
     headerGradient: ["#374151", "#111827"],
   },
 };
+
+/** ボタングラデーションプリセット（記事エディタのbtn-*と同じ色味） */
+export const BTN_GRADIENT_PRESETS: { key: string; label: string; from: string; mid: string; to: string }[] = [
+  { key: "orange", label: "オレンジ", from: "#dd6b20", mid: "#ed8936", to: "#f6ad55" },
+  { key: "blue",   label: "青",       from: "#007adf", mid: "#00b4cc", to: "#00ecbc" },
+  { key: "red",    label: "赤",       from: "#e53e3e", mid: "#f56565", to: "#fc8181" },
+  { key: "green",  label: "緑",       from: "#38a169", mid: "#48bb78", to: "#68d391" },
+  { key: "purple", label: "紫",       from: "#805ad5", mid: "#9f7aea", to: "#b794f4" },
+  { key: "black",  label: "黒",       from: "#1f2937", mid: "#374151", to: "#1f2937" },
+];
 
 const W = 1040;
 const H = 2080;
@@ -205,7 +226,6 @@ export async function generateLineImage(
     body: string;
     writerName: string;
     avatarDataUrl: string;
-    logoDataUrl: string;
   },
   styles: LineImageStyles,
 ): Promise<string> {
@@ -228,12 +248,13 @@ export async function generateLineImage(
   ctx.fillStyle = headerGrad;
   ctx.fillRect(0, 0, W, styles.headerHeight);
 
-  // ヘッダーロゴ
-  const logoImg = await loadImage(data.logoDataUrl || config.logo);
-  if (logoImg) {
-    const logoH = 40;
-    const logoW = (logoImg.width / logoImg.height) * logoH;
-    ctx.drawImage(logoImg, (W - logoW) / 2, (styles.headerHeight - logoH) / 2, logoW, logoH);
+  // ヘッダーテキスト
+  if (styles.headerText) {
+    ctx.fillStyle = styles.headerTextColor;
+    ctx.font = `${styles.headerFontWeight} ${styles.headerFontSize}px ${font}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(styles.headerText, W / 2, styles.headerHeight / 2);
   }
 
   // ── メインコンテンツ ──
@@ -262,7 +283,11 @@ export async function generateLineImage(
     const avatarImg = await loadImage(data.avatarDataUrl);
     if (avatarImg) {
       const r = styles.avatarSize / 2;
-      drawCircleImage(ctx, avatarImg, W / 2, curY + r, r);
+      // 揃え位置に応じてX座標を計算
+      const avatarCx = styles.avatarAlign === "center" ? W / 2
+        : styles.avatarAlign === "right" ? W - styles.paddingX - r
+        : styles.paddingX + r; // left
+      drawCircleImage(ctx, avatarImg, avatarCx, curY + r, r);
       curY += styles.avatarSize + 40;
     }
   }
@@ -286,13 +311,14 @@ export async function generateLineImage(
   const btnY = curY;
 
   // ボタン影
-  ctx.shadowColor = "rgba(245, 158, 11, 0.4)";
+  ctx.shadowColor = styles.btnShadowColor;
   ctx.shadowBlur = 20;
   ctx.shadowOffsetY = 6;
 
-  // ボタン背景（グラデーション角丸）
+  // ボタン背景（3ストップグラデーション角丸）
   const btnGrad = ctx.createLinearGradient(btnX, btnY, btnX + btnW, btnY);
   btnGrad.addColorStop(0, styles.btnBgFrom);
+  btnGrad.addColorStop(0.5, styles.btnBgMid);
   btnGrad.addColorStop(1, styles.btnBgTo);
   ctx.fillStyle = btnGrad;
   roundRect(ctx, btnX, btnY, btnW, btnH, styles.btnRadius);
