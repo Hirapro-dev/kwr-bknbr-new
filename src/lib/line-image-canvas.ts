@@ -9,7 +9,6 @@ export type TextAlign = "left" | "center" | "right";
 export type LineImageStyles = {
   // ヘッダー
   headerHeight: number;
-  headerText: string;
   headerFontSize: number;
   headerFontWeight: string;
   headerTextColor: string;
@@ -27,6 +26,8 @@ export type LineImageStyles = {
   avatarSize: number;
   avatarShow: boolean;
   avatarAlign: TextAlign;
+  avatarMarginTop: number;
+  avatarMarginBottom: number;
   // 本文
   bodyFontSize: number;
   bodyFontWeight: string;
@@ -45,6 +46,7 @@ export type LineImageStyles = {
   btnTextColor: string;
   btnEmoji: string;
   btnShadowColor: string;
+  btnWidthAuto: boolean; // trueの場合、本文テキストの横幅に合わせる
   // 背景
   bgColor: string;
   // パディング
@@ -55,7 +57,6 @@ export type LineImageStyles = {
 /** デフォルトスタイル */
 export const DEFAULT_STYLES: LineImageStyles = {
   headerHeight: 80,
-  headerText: "KAWARA版",
   headerFontSize: 32,
   headerFontWeight: "700",
   headerTextColor: "#ffffff",
@@ -70,6 +71,8 @@ export const DEFAULT_STYLES: LineImageStyles = {
   avatarSize: 200,
   avatarShow: true,
   avatarAlign: "left",
+  avatarMarginTop: 0,
+  avatarMarginBottom: 40,
   bodyFontSize: 28,
   bodyFontWeight: "400",
   bodyLineHeight: 1.9,
@@ -86,6 +89,7 @@ export const DEFAULT_STYLES: LineImageStyles = {
   btnTextColor: "#ffffff",
   btnEmoji: "",
   btnShadowColor: "rgba(0,0,0,0.15)",
+  btnWidthAuto: true,
   bgColor: "#ffffff",
   paddingX: 60,
   paddingTop: 60,
@@ -93,17 +97,20 @@ export const DEFAULT_STYLES: LineImageStyles = {
 
 export type Variant = "gen" | "vip" | "vc";
 
-export const VARIANT_CONFIG: Record<Variant, { label: string; headerGradient: [string, string] }> = {
+export const VARIANT_CONFIG: Record<Variant, { label: string; headerText: string; headerGradient: [string, string] }> = {
   gen: {
     label: "一般会員",
+    headerText: '投資の"KAWARA"版.com',
     headerGradient: ["#1e40af", "#3b82f6"],
   },
   vip: {
     label: "正会員",
+    headerText: '投資の"KAWARA"版.com',
     headerGradient: ["#991b1b", "#ef4444"],
   },
   vc: {
     label: "VC長者",
+    headerText: "仮想通貨長者.com",
     headerGradient: ["#374151", "#111827"],
   },
 };
@@ -209,13 +216,6 @@ function drawCircleImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement, c
   if (aspect > 1) { sw = size * aspect; } else { sh = size / aspect; }
   ctx.drawImage(img, cx - sw / 2, cy - sh / 2, sw, sh);
   ctx.restore();
-
-  // 枠線
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-  ctx.strokeStyle = "#e5e7eb";
-  ctx.lineWidth = 3;
-  ctx.stroke();
 }
 
 /** Canvas APIでLINE配信画像を生成 */
@@ -248,14 +248,12 @@ export async function generateLineImage(
   ctx.fillStyle = headerGrad;
   ctx.fillRect(0, 0, W, styles.headerHeight);
 
-  // ヘッダーテキスト
-  if (styles.headerText) {
-    ctx.fillStyle = styles.headerTextColor;
-    ctx.font = `${styles.headerFontWeight} ${styles.headerFontSize}px ${font}`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(styles.headerText, W / 2, styles.headerHeight / 2);
-  }
+  // ヘッダーテキスト（媒体ごとに固定）
+  ctx.fillStyle = styles.headerTextColor;
+  ctx.font = `${styles.headerFontWeight} ${styles.headerFontSize}px ${font}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(config.headerText, W / 2, styles.headerHeight / 2);
 
   // ── メインコンテンツ ──
   let curY = styles.headerHeight + styles.paddingTop;
@@ -282,13 +280,14 @@ export async function generateLineImage(
   if (styles.avatarShow && data.avatarDataUrl) {
     const avatarImg = await loadImage(data.avatarDataUrl);
     if (avatarImg) {
+      curY += styles.avatarMarginTop;
       const r = styles.avatarSize / 2;
       // 揃え位置に応じてX座標を計算
       const avatarCx = styles.avatarAlign === "center" ? W / 2
         : styles.avatarAlign === "right" ? W - styles.paddingX - r
         : styles.paddingX + r; // left
       drawCircleImage(ctx, avatarImg, avatarCx, curY + r, r);
-      curY += styles.avatarSize + 40;
+      curY += styles.avatarSize + styles.avatarMarginBottom;
     }
   }
 
@@ -305,9 +304,10 @@ export async function generateLineImage(
   const btnTextMetrics = ctx.measureText(styles.btnText);
   const emojiW = styles.btnEmoji ? styles.btnFontSize + 12 : 0;
   const btnContentW = btnTextMetrics.width + emojiW;
-  const btnW = btnContentW + styles.btnPaddingX * 2;
+  // btnWidthAutoがtrueの場合、本文テキストの横幅に合わせる
+  const btnW = styles.btnWidthAuto ? contentWidth : btnContentW + styles.btnPaddingX * 2;
   const btnH = styles.btnFontSize + styles.btnPaddingY * 2;
-  const btnX = (W - btnW) / 2;
+  const btnX = styles.btnWidthAuto ? styles.paddingX : (W - btnW) / 2;
   const btnY = curY;
 
   // ボタン影
@@ -333,8 +333,10 @@ export async function generateLineImage(
   ctx.fillStyle = styles.btnTextColor;
   ctx.font = `800 ${styles.btnFontSize}px ${font}`;
   ctx.textBaseline = "middle";
-  const textX = btnX + styles.btnPaddingX;
   const textY = btnY + btnH / 2;
+  // テキスト＋絵文字をボタン内で中央配置
+  const totalTextW = btnTextMetrics.width + emojiW;
+  const textX = btnX + (btnW - totalTextW) / 2;
   ctx.textAlign = "left";
   ctx.fillText(styles.btnText, textX, textY);
 

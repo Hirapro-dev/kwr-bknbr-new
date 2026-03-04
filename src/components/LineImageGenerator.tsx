@@ -494,8 +494,7 @@ export default function LineImageGenerator({
                         <legend className="text-[11px] font-semibold text-slate-500 px-1">ヘッダー</legend>
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] text-slate-500 w-20 shrink-0">テキスト</span>
-                          <input type="text" value={styles.headerText} onChange={(e) => updateStyle("headerText", e.target.value)}
-                            className="flex-1 text-xs border border-slate-200 rounded px-2 py-1" />
+                          <span className="text-xs text-slate-600">{VARIANT_CONFIG[activeVariant].headerText}</span>
                         </div>
                         <NumInput label="フォントサイズ" value={styles.headerFontSize} onChange={(v) => updateStyle("headerFontSize", v)} min={16} max={60} />
                         <div className="flex items-center gap-2">
@@ -551,6 +550,8 @@ export default function LineImageGenerator({
                               <span className="text-[11px] text-slate-500 w-20 shrink-0">揃え</span>
                               <AlignButtons value={styles.avatarAlign} onChange={(v) => updateStyle("avatarAlign", v)} />
                             </div>
+                            <NumInput label="上マージン" value={styles.avatarMarginTop} onChange={(v) => updateStyle("avatarMarginTop", v)} min={0} max={200} />
+                            <NumInput label="下マージン" value={styles.avatarMarginBottom} onChange={(v) => updateStyle("avatarMarginBottom", v)} min={0} max={200} />
                           </>
                         )}
                       </fieldset>
@@ -569,7 +570,16 @@ export default function LineImageGenerator({
                             className="w-16 text-xs border border-slate-200 rounded px-2 py-1" />
                         </div>
                         <NumInput label="フォントサイズ" value={styles.btnFontSize} onChange={(v) => updateStyle("btnFontSize", v)} min={16} max={60} />
-                        <NumInput label="左右パディング" value={styles.btnPaddingX} onChange={(v) => updateStyle("btnPaddingX", v)} min={20} max={160} />
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-slate-500 w-20 shrink-0">横幅</span>
+                          <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                            <input type="checkbox" checked={styles.btnWidthAuto} onChange={(e) => updateStyle("btnWidthAuto", e.target.checked)} />
+                            本文幅に合わせる
+                          </label>
+                        </div>
+                        {!styles.btnWidthAuto && (
+                          <NumInput label="左右パディング" value={styles.btnPaddingX} onChange={(v) => updateStyle("btnPaddingX", v)} min={20} max={160} />
+                        )}
                         <NumInput label="上下パディング" value={styles.btnPaddingY} onChange={(v) => updateStyle("btnPaddingY", v)} min={10} max={60} />
                         <NumInput label="角丸" value={styles.btnRadius} onChange={(v) => updateStyle("btnRadius", v)} min={0} max={999} />
                         <ColorInput label="テキスト色" value={styles.btnTextColor} onChange={(v) => updateStyle("btnTextColor", v)} />
