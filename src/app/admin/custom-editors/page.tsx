@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FiArrowLeft, FiPlus, FiTrash2, FiSave } from "react-icons/fi";
+import { FiArrowLeft, FiPlus, FiTrash2, FiSave, FiEdit2, FiX } from "react-icons/fi";
 
 type CustomEditor = { id: number; name: string; icon: string; html: string; order: number };
 
@@ -18,6 +18,12 @@ export default function CustomEditorsPage() {
   const [newHtml, setNewHtml] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  // 編集中のアイテムID
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editIcon, setEditIcon] = useState("");
+  const [editHtml, setEditHtml] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -51,6 +57,40 @@ export default function CustomEditorsPage() {
     if (!confirm("この編集機能を削除しますか？")) return;
     await fetch(`/api/custom-editors/${id}`, { method: "DELETE" });
     setEditors(editors.filter((e) => e.id !== id));
+    if (editingId === id) setEditingId(null);
+  };
+
+  // 編集モード開始
+  const startEdit = (editor: CustomEditor) => {
+    setEditingId(editor.id);
+    setEditName(editor.name);
+    setEditIcon(editor.icon);
+    setEditHtml(editor.html);
+  };
+
+  // 編集キャンセル
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditName(""); setEditIcon(""); setEditHtml("");
+  };
+
+  // 編集保存
+  const handleUpdate = async () => {
+    if (!editingId) return;
+    if (!editName.trim() || !editHtml.trim()) { alert("名前とHTMLテンプレートを入力してください"); return; }
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/custom-editors/${editingId}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName, icon: editIcon, html: editHtml }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setEditors(editors.map((e) => e.id === editingId ? { ...e, ...updated } : e));
+        cancelEdit();
+      } else { alert("更新に失敗しました"); }
+    } catch { alert("更新に失敗しました"); }
+    finally { setEditSaving(false); }
   };
 
   return (
@@ -125,17 +165,65 @@ export default function CustomEditorsPage() {
         ) : (
           <div className="space-y-3">
             {editors.map((editor) => (
-              <div key={editor.id} className="bg-white rounded-lg border border-slate-200 p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{editor.icon}</span>
-                  <div>
-                    <p className="font-semibold text-sm text-slate-900">{editor.name}</p>
-                    <p className="text-xs text-slate-400 font-mono truncate max-w-md">{editor.html.slice(0, 80)}...</p>
+              <div key={editor.id} className="bg-white rounded-lg border border-slate-200">
+                {editingId === editor.id ? (
+                  /* ── 編集モード ── */
+                  <div className="p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-semibold text-blue-600">編集中</h3>
+                      <button onClick={cancelEdit} className="p-1 text-slate-400 hover:text-slate-600"><FiX size={16} /></button>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">機能名</label>
+                      <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">アイコン</label>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {ICON_SUGGESTIONS.map((ic) => (
+                          <button key={ic} onClick={() => setEditIcon(ic)}
+                            className={`w-9 h-9 rounded-lg border text-lg flex items-center justify-center transition-colors ${editIcon === ic ? "border-blue-400 bg-blue-50" : "border-slate-200 hover:border-blue-300"}`}>
+                            {ic}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">HTMLテンプレート</label>
+                      <textarea value={editHtml} onChange={(e) => setEditHtml(e.target.value)} rows={5}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-blue-400 resize-y" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={handleUpdate} disabled={editSaving}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50">
+                        <FiSave size={13} /> {editSaving ? "保存中..." : "保存"}
+                      </button>
+                      <button onClick={cancelEdit} className="border border-slate-200 px-4 py-2 rounded-lg text-xs text-slate-600 hover:bg-slate-50">
+                        キャンセル
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <button onClick={() => handleDelete(editor.id)} className="p-2 text-slate-400 hover:text-red-500 rounded-lg transition-colors">
-                  <FiTrash2 size={15} />
-                </button>
+                ) : (
+                  /* ── 表示モード ── */
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <span className="text-2xl">{editor.icon}</span>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm text-slate-900">{editor.name}</p>
+                        <p className="text-xs text-slate-400 font-mono truncate max-w-md">{editor.html.slice(0, 80)}...</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => startEdit(editor)} className="p-2 text-slate-400 hover:text-blue-600 rounded-lg transition-colors" title="編集">
+                        <FiEdit2 size={15} />
+                      </button>
+                      <button onClick={() => handleDelete(editor.id)} className="p-2 text-slate-400 hover:text-red-500 rounded-lg transition-colors" title="削除">
+                        <FiTrash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

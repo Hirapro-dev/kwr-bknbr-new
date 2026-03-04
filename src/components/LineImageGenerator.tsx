@@ -12,13 +12,32 @@ type LineImageGeneratorProps = {
   content: string;
   writerName: string;
   writerAvatarUrl: string | null;
+  showForGen: boolean;
+  showForVip: boolean;
+  showForVC: boolean;
 };
 
-const VARIANT_OPTIONS: { value: Variant; label: string; logo: string }[] = [
-  { value: "gen", label: "一般会員", logo: "/header_logo.png" },
-  { value: "vip", label: "正会員", logo: "/header_logo_vip.png" },
-  { value: "vc", label: "VC長者", logo: "/header_logo_vc.png" },
-];
+/** 媒体ごとの設定 */
+const VARIANT_CONFIG: Record<Variant, { label: string; logo: string; headerBg: string }> = {
+  gen: {
+    label: "一般会員",
+    logo: "/header_logo.png",
+    // 左から右への青ベースのグラデーション
+    headerBg: "linear-gradient(to right, #1e40af, #3b82f6)",
+  },
+  vip: {
+    label: "正会員",
+    logo: "/header_logo_vip.png",
+    // 左から右への赤ベースのグラデーション
+    headerBg: "linear-gradient(to right, #991b1b, #ef4444)",
+  },
+  vc: {
+    label: "VC長者",
+    logo: "/header_logo_vc.png",
+    // 左から右への濃いグレーから黒のグラデーション
+    headerBg: "linear-gradient(to right, #374151, #111827)",
+  },
+};
 
 /** 外部画像URLをDataURLに変換（CORS対策） */
 async function toDataUrl(url: string): Promise<string> {
@@ -41,13 +60,28 @@ export default function LineImageGenerator({
   content,
   writerName,
   writerAvatarUrl,
+  showForGen,
+  showForVip,
+  showForVC,
 }: LineImageGeneratorProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [variant, setVariant] = useState<Variant>("gen");
   const [generating, setGenerating] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // 媒体ごとのプレビューURL
+  const [previews, setPreviews] = useState<Record<Variant, string | null>>({
+    gen: null,
+    vip: null,
+    vc: null,
+  });
   const [avatarDataUrl, setAvatarDataUrl] = useState<string>("");
+  // 現在レンダリング中の媒体（隠しDIV用）
+  const [renderVariant, setRenderVariant] = useState<Variant>("gen");
   const templateRef = useRef<HTMLDivElement>(null);
+
+  // チェックされた媒体のリスト
+  const enabledVariants: Variant[] = [];
+  if (showForGen) enabledVariants.push("gen");
+  if (showForVip) enabledVariants.push("vip");
+  if (showForVC) enabledVariants.push("vc");
 
   // アバター画像をDataURLに事前変換（CORS対策）
   useEffect(() => {
@@ -59,40 +93,78 @@ export default function LineImageGenerator({
   }, [writerAvatarUrl]);
 
   const bodyText = extractPlainText(content, 500);
-  const logoSrc = VARIANT_OPTIONS.find((v) => v.value === variant)?.logo || "/header_logo.png";
+  const currentConfig = VARIANT_CONFIG[renderVariant];
 
-  const handleGenerate = useCallback(async () => {
-    const node = templateRef.current;
-    if (!node) return;
-
-    setGenerating(true);
-    setPreviewUrl(null);
-    try {
-      // html-to-imageで隠しDIVをPNGに変換
-      const dataUrl = await toPng(node, {
-        width: 1040,
-        height: 2080,
-        pixelRatio: 1,
-        cacheBust: true,
-        skipAutoScale: true,
+  /** 指定媒体の画像を1枚生成 */
+  const generateSingle = useCallback(async (v: Variant): Promise<string | null> => {
+    return new Promise((resolve) => {
+      // renderVariantを変更してDOMを更新させ、次のフレームでキャプチャ
+      setRenderVariant(v);
+      // DOM更新を待つために requestAnimationFrame を2回使う
+      requestAnimationFrame(() => {
+        requestAnimationFrame(async () => {
+          const node = templateRef.current;
+          if (!node) { resolve(null); return; }
+          try {
+            const dataUrl = await toPng(node, {
+              width: 1040,
+              height: 2080,
+              pixelRatio: 1,
+              cacheBust: true,
+              skipAutoScale: true,
+            });
+            resolve(dataUrl);
+          } catch (err) {
+            console.error(`LINE画像生成エラー (${v}):`, err);
+            resolve(null);
+          }
+        });
       });
-      setPreviewUrl(dataUrl);
-    } catch (err) {
-      console.error("LINE画像生成エラー:", err);
-      alert("画像の生成に失敗しました。ブラウザを変えて再度お試しください。");
-    } finally {
-      setGenerating(false);
-    }
+    });
   }, []);
 
-  const handleDownload = () => {
-    if (!previewUrl) return;
+  /** チェック済み媒体の画像をすべて生成 */
+  const handleGenerateAll = useCallback(async () => {
+    if (enabledVariants.length === 0) {
+      alert("媒体が選択されていません。チェックボックスから配信先を選んでください。");
+      return;
+    }
+    setGenerating(true);
+    setPreviews({ gen: null, vip: null, vc: null });
+
+    const results: Record<Variant, string | null> = { gen: null, vip: null, vc: null };
+    for (const v of enabledVariants) {
+      const url = await generateSingle(v);
+      results[v] = url;
+    }
+    setPreviews(results);
+
+    const failCount = enabledVariants.filter((v) => !results[v]).length;
+    if (failCount > 0) {
+      alert(`${failCount}件の画像生成に失敗しました。ブラウザを変えて再度お試しください。`);
+    }
+    setGenerating(false);
+  }, [enabledVariants, generateSingle]);
+
+  /** 1枚ダウンロード */
+  const handleDownload = (v: Variant) => {
+    const url = previews[v];
+    if (!url) return;
     const link = document.createElement("a");
     const slug = title.slice(0, 20).replace(/[^a-zA-Z0-9\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/g, "_");
-    link.download = `line-${variant}-${slug}-${Date.now()}.png`;
-    link.href = previewUrl;
+    link.download = `line-${v}-${slug}-${Date.now()}.png`;
+    link.href = url;
     link.click();
   };
+
+  /** 全媒体を一括ダウンロード */
+  const handleDownloadAll = () => {
+    for (const v of enabledVariants) {
+      if (previews[v]) handleDownload(v);
+    }
+  };
+
+  const previewCount = enabledVariants.filter((v) => previews[v]).length;
 
   return (
     <div className="mb-4 md:mb-6">
@@ -109,65 +181,94 @@ export default function LineImageGenerator({
 
       {isOpen && (
         <div className="mt-3 bg-white border border-slate-200 rounded-lg p-4">
-          {/* 設定エリア */}
+          {/* 対象媒体の表示 & 生成ボタン */}
           <div className="flex flex-wrap items-center gap-3 mb-4">
-            <label className="text-xs font-semibold text-slate-500">媒体:</label>
-            <div className="flex gap-1">
-              {VARIANT_OPTIONS.map((v) => (
-                <button
-                  key={v.value}
-                  type="button"
-                  onClick={() => { setVariant(v.value); setPreviewUrl(null); }}
-                  className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                    variant === v.value
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {v.label}
-                </button>
-              ))}
+            <label className="text-xs font-semibold text-slate-500">対象媒体:</label>
+            <div className="flex gap-1.5 flex-wrap">
+              {enabledVariants.length > 0 ? (
+                enabledVariants.map((v) => (
+                  <span
+                    key={v}
+                    className={`px-3 py-1 text-xs rounded-full font-medium ${
+                      v === "gen"
+                        ? "bg-blue-100 text-blue-700"
+                        : v === "vip"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-gray-200 text-gray-700"
+                    }`}
+                  >
+                    {VARIANT_CONFIG[v].label}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-slate-400">媒体が選択されていません</span>
+              )}
             </div>
             <button
               type="button"
-              onClick={handleGenerate}
-              disabled={generating || !title.trim()}
+              onClick={handleGenerateAll}
+              disabled={generating || !title.trim() || enabledVariants.length === 0}
               className="ml-auto px-4 py-1.5 text-xs bg-black text-white rounded-lg hover:bg-black/80 disabled:opacity-50 flex items-center gap-1.5"
             >
               {generating ? (
                 <><FiRefreshCw size={12} className="animate-spin" /> 生成中...</>
               ) : (
-                <><FiSmartphone size={12} /> 生成</>
+                <><FiSmartphone size={12} /> {enabledVariants.length > 1 ? `${enabledVariants.length}媒体を一括生成` : "生成"}</>
               )}
             </button>
           </div>
 
-          {/* プレビュー & ダウンロード */}
-          {previewUrl && (
-            <div className="space-y-3">
-              <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50 p-2 flex justify-center">
-                {/* 1040x2080 を幅300px程度に縮小表示 */}
-                <img
-                  src={previewUrl}
-                  alt="LINE配信画像プレビュー"
-                  className="w-[260px] md:w-[300px] h-auto rounded shadow-sm"
-                />
+          {/* プレビュー一覧 */}
+          {previewCount > 0 && (
+            <div className="space-y-4">
+              <div className={`grid gap-4 ${previewCount >= 3 ? "grid-cols-1 md:grid-cols-3" : previewCount === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
+                {enabledVariants.map((v) =>
+                  previews[v] ? (
+                    <div key={v} className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+                      <div className={`text-center py-1.5 text-xs font-semibold text-white ${
+                        v === "gen" ? "bg-blue-600" : v === "vip" ? "bg-red-600" : "bg-gray-700"
+                      }`}>
+                        {VARIANT_CONFIG[v].label}
+                      </div>
+                      <div className="p-2 flex justify-center">
+                        <img
+                          src={previews[v]!}
+                          alt={`${VARIANT_CONFIG[v].label} LINE配信画像`}
+                          className="w-[200px] md:w-[240px] h-auto rounded shadow-sm"
+                        />
+                      </div>
+                      <div className="flex justify-center pb-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(v)}
+                          className={`px-3 py-1 text-xs text-white rounded-lg flex items-center gap-1.5 ${
+                            v === "gen" ? "bg-blue-600 hover:bg-blue-700" : v === "vip" ? "bg-red-600 hover:bg-red-700" : "bg-gray-700 hover:bg-gray-800"
+                          }`}
+                        >
+                          <FiDownload size={12} /> DL
+                        </button>
+                      </div>
+                    </div>
+                  ) : null
+                )}
               </div>
-              <div className="flex justify-center">
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  className="px-5 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                >
-                  <FiDownload size={14} /> ダウンロード（1040×2080px）
-                </button>
-              </div>
+              {previewCount > 1 && (
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={handleDownloadAll}
+                    className="px-5 py-2 text-sm bg-black text-white rounded-lg hover:bg-black/80 flex items-center gap-2"
+                  >
+                    <FiDownload size={14} /> すべてダウンロード（1040×2080px）
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {!previewUrl && !generating && (
+          {previewCount === 0 && !generating && (
             <p className="text-xs text-slate-400 text-center py-3">
-              タイトルと本文を入力して「生成」をクリックすると、LINE配信用画像をプレビューできます
+              タイトルと本文を入力して「生成」をクリックすると、チェック済み媒体のLINE配信用画像をまとめて生成できます
             </p>
           )}
 
@@ -195,12 +296,12 @@ export default function LineImageGenerator({
           background: "#ffffff",
         }}
       >
-        {/* ── ヘッダーバー ── */}
+        {/* ── ヘッダーバー（媒体ごとのグラデーション） ── */}
         <div
           style={{
             width: "100%",
             height: "80px",
-            background: "#000000",
+            background: currentConfig.headerBg,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -208,8 +309,8 @@ export default function LineImageGenerator({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={logoSrc}
-            alt="ロゴ"
+            src={currentConfig.logo}
+            alt="logo"
             style={{ height: "40px", objectFit: "contain" }}
             crossOrigin="anonymous"
           />
