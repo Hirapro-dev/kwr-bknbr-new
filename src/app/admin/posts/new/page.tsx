@@ -135,15 +135,16 @@ export default function NewPost() {
     }
   };
 
-  // ワードプレス風: Enter=段落(<p>)、Cmd+Enter=改行(<br>)。引用・注釈内は改行2回で解除。
+  // Enter=段落(<p>)、Shift+Enter=改行(<br>)。引用・注釈内は改行2回で解除。
   const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "Enter" || e.shiftKey) return;
+    if (e.key !== "Enter") return;
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount || !editorRef.current) return;
 
     const blockEl = getQuoteOrNoteBlock();
 
-    if (e.metaKey) {
+    // Shift+Enter または Cmd+Enter → 改行（<br>）のみ挿入
+    if (e.shiftKey || e.metaKey) {
       e.preventDefault();
       document.execCommand("insertHTML", false, "<br>");
       syncFromVisual();
