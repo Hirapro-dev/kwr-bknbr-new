@@ -28,45 +28,84 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+type RgbColor = { red?: number; green?: number; blue?: number };
+
 type TextStyle = {
   bold?: boolean;
   underline?: boolean;
+  italic?: boolean;
+  strikethrough?: boolean;
   link?: { url?: string };
-  foregroundColor?: { rgbColor?: { red?: number; green?: number; blue?: number } };
-  backgroundColor?: { rgbColor?: { red?: number; green?: number; blue?: number } };
+  // Google Docs APIは foregroundColor / backgroundColor の両形式を返す場合がある
+  foregroundColor?: { color?: { rgbColor?: RgbColor }; rgbColor?: RgbColor };
+  backgroundColor?: { color?: { rgbColor?: RgbColor }; rgbColor?: RgbColor };
 };
 
 // リンク付きテキストランの結果を表す型
 type TextRunResult = { html: string; isLink: boolean; linkUrl?: string };
+
+/** RgbColorを取得するヘルパー（Google Docs APIの2種類の形式に対応） */
+function extractRgb(colorObj?: { color?: { rgbColor?: RgbColor }; rgbColor?: RgbColor }): RgbColor | null {
+  if (!colorObj) return null;
+  // 直接rgbColorがある場合
+  const direct = colorObj.rgbColor;
+  if (direct && (direct.red !== undefined || direct.green !== undefined || direct.blue !== undefined)) {
+    return direct;
+  }
+  // color.rgbColor の形式
+  const nested = colorObj.color?.rgbColor;
+  if (nested && (nested.red !== undefined || nested.green !== undefined || nested.blue !== undefined)) {
+    return nested;
+  }
+  return null;
+}
+
+/** インラインスタイルを適用した文字列を返す（色・太字・下線・マーカー・イタリック・取り消し線） */
+function applyInlineStyles(escaped: string, style?: TextStyle): string {
+  if (!style) return escaped;
+  let out = escaped;
+  if (style.bold) out = `<strong>${out}</strong>`;
+  if (style.italic) out = `<em>${out}</em>`;
+  if (style.strikethrough) out = `<s>${out}</s>`;
+  if (style.underline && !style.link?.url) out = `<u>${out}</u>`; // リンクには下線つけない（aタグ側で処理）
+
+  // 前景色（黒 #000000 はデフォルトなのでスキップ）
+  const fg = extractRgb(style.foregroundColor);
+  if (fg) {
+    const hex = rgbToHex(fg.red ?? 0, fg.green ?? 0, fg.blue ?? 0);
+    if (hex !== "#000000") {
+      out = `<span style="color:${hex}">${out}</span>`;
+    }
+  }
+
+  // 背景色（マーカー / ハイライト）
+  const bg = extractRgb(style.backgroundColor);
+  if (bg) {
+    const hex = rgbToHex(bg.red ?? 0, bg.green ?? 0, bg.blue ?? 0);
+    if (hex !== "#ffffff" && hex !== "#000000") {
+      out = `<span style="background-color:${hex};padding:2px 4px;border-radius:3px">${out}</span>`;
+    }
+  }
+  return out;
+}
 
 function wrapTextRunStyle(text: string, style?: TextStyle): TextRunResult {
   if (!text) return { html: "", isLink: false };
   const escaped = escapeHtml(text);
   if (!style) return { html: escaped, isLink: false };
 
-  // リンクがある場合はボタン化対象としてマーク
+  // リンクがある場合：スタイル（太字・色・マーカー）も適用した上でリンクとしてマーク
   const linkUrl = style.link?.url;
   if (linkUrl) {
+    const styled = applyInlineStyles(escaped, style);
     return {
-      html: escaped,
+      html: styled,
       isLink: true,
       linkUrl,
     };
   }
 
-  let out = escaped;
-  if (style.bold) out = `<strong>${out}</strong>`;
-  if (style.underline) out = `<u>${out}</u>`;
-  const fg = style.foregroundColor?.rgbColor;
-  if (fg != null && (fg.red !== undefined || fg.green !== undefined || fg.blue !== undefined)) {
-    const hex = rgbToHex(fg.red ?? 0, fg.green ?? 0, fg.blue ?? 0);
-    out = `<span style="color:${hex}">${out}</span>`;
-  }
-  const bg = style.backgroundColor?.rgbColor;
-  if (bg != null && (bg.red !== undefined || bg.green !== undefined || bg.blue !== undefined)) {
-    const hex = rgbToHex(bg.red ?? 0, bg.green ?? 0, bg.blue ?? 0);
-    out = `<span style="background-color:${hex}">${out}</span>`;
-  }
+  const out = applyInlineStyles(escaped, style);
   return { html: out, isLink: false };
 }
 
@@ -121,8 +160,47 @@ export async function POST(request: NextRequest) {
     const elements = Array.isArray(bodyContent) ? bodyContent : [];
 
     for (const el of elements) {
-      const se = el as { paragraph?: { elements?: unknown[]; paragraphStyle?: { namedStyleType?: string } }; table?: unknown };
-      if (se.table) continue; // テーブルはスキップ（必要なら後で対応）
+      const se = el as {
+        paragraph?: { elements?: unknown[]; paragraphStyle?: { namedStyleType?: string } };
+        table?: { tableRows?: { tableCells?: { content?: unknown[] }[] }[] };
+      };
+
+      // テーブル処理
+      if (se.table) {
+        const rows = se.table.tableRows ?? [];
+        const tableHtml: string[] = ["<table>"];
+        for (let ri = 0; ri < rows.length; ri++) {
+          tableHtml.push("<tr>");
+          const cells = rows[ri].tableCells ?? [];
+          for (const cell of cells) {
+            const tag = ri === 0 ? "th" : "td";
+            // セル内の段落テキストを結合
+            const cellContent = cell.content ?? [];
+            const cellTexts: string[] = [];
+            for (const cellEl of cellContent as { paragraph?: { elements?: unknown[] } }[]) {
+              const cellPara = cellEl.paragraph;
+              if (!cellPara?.elements) continue;
+              const cellParts: string[] = [];
+              for (const pe of cellPara.elements as { textRun?: { content?: string; textStyle?: TextStyle } }[]) {
+                if (pe.textRun?.content != null) {
+                  const text = (pe.textRun.content as string).replace(/\n$/, "");
+                  if (text) {
+                    const result = wrapTextRunStyle(text, pe.textRun.textStyle);
+                    cellParts.push(result.html);
+                  }
+                }
+              }
+              if (cellParts.length > 0) cellTexts.push(cellParts.join(""));
+            }
+            tableHtml.push(`<${tag}>${cellTexts.join("<br>")}</${tag}>`);
+          }
+          tableHtml.push("</tr>");
+        }
+        tableHtml.push("</table>");
+        contentElements.push(tableHtml.join(""));
+        continue;
+      }
+
       const para = se.paragraph;
       if (!para?.elements) continue;
 
