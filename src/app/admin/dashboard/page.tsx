@@ -8,7 +8,7 @@ import {
   FiBarChart2, FiSettings, FiImage, FiUsers, FiClock, FiTrendingUp,
   FiMousePointer,
 } from "react-icons/fi";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getDisplayDate } from "@/lib/utils";
 
 type Post = {
   id: number; title: string; slug: string; published: boolean;
@@ -162,7 +162,13 @@ export default function AdminDashboard() {
       if (sort === "views_asc" && Object.keys(stats.viewsByPost).length > 0) {
         return (stats.viewsByPost[a.id] || 0) - (stats.viewsByPost[b.id] || 0);
       }
-      return 0; // その他のソートはAPI側の順序を維持
+      // 日付ソートの場合は scheduledAt ?? createdAt で並べ替え
+      if (sort === "newest" || sort === "oldest") {
+        const dateA = new Date(a.scheduledAt ?? a.createdAt).getTime();
+        const dateB = new Date(b.scheduledAt ?? b.createdAt).getTime();
+        return sort === "newest" ? dateB - dateA : dateA - dateB;
+      }
+      return 0;
     });
 
   // 媒体別の閲覧数を使って合計を算出（viewsByPostがある場合はそちらを優先）
@@ -363,10 +369,10 @@ export default function AdminDashboard() {
                         </div>
                       </td>
                       <td className="px-5 py-3.5 text-sm text-slate-400">
-                        {formatDate(post.createdAt)}
+                        {formatDate(getDisplayDate(post))}
                         {post.scheduledAt && !post.published && (
                           <span className="block text-xs text-amber-500">
-                            予約: {new Date(post.scheduledAt).toLocaleString("ja-JP")}
+                            予約: {new Date(post.scheduledAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}
                           </span>
                         )}
                       </td>
@@ -414,7 +420,7 @@ export default function AdminDashboard() {
                           <span className="text-xs text-slate-600">人気</span>
                         </label>
                         <span className="text-xs text-slate-400 flex items-center gap-1"><FiTrendingUp size={11} />{getPostViews(post.id).toLocaleString()}</span>
-                        <span className="text-xs text-slate-400">{formatDate(post.createdAt)}</span>
+                        <span className="text-xs text-slate-400">{formatDate(getDisplayDate(post))}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">

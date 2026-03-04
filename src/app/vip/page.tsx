@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PostCard from "@/components/PostCard";
 import Pagination from "@/components/Pagination";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getDisplayDate } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 
@@ -17,6 +17,7 @@ type Post = {
   published: boolean;
   views: number;
   createdAt: Date;
+  scheduledAt: Date | null;
   writer?: { name: string; avatarUrl: string | null } | null;
 };
 
@@ -24,7 +25,7 @@ type Banner = { id: number; label: string; url: string; imageUrl: string | null;
 
 const postSelect = {
   id: true, title: true, slug: true, excerpt: true,
-  eyecatch: true, published: true, views: true, createdAt: true,
+  eyecatch: true, published: true, views: true, createdAt: true, scheduledAt: true,
   writer: { select: { name: true, avatarUrl: true } },
 } as const;
 
@@ -45,10 +46,14 @@ async function getPosts(page: number, q?: string) {
       { content: { contains: k, mode: "insensitive" } },
     ];
   }
-  const [posts, total] = await Promise.all([
+  const [rawPosts, total] = await Promise.all([
     prisma.post.findMany({ where, orderBy: { createdAt: "desc" }, skip, take: limit, select: postSelect }),
     prisma.post.count({ where }),
   ]);
+  // scheduledAt ?? createdAt で新しい順にソート
+  const posts = rawPosts.sort((a, b) =>
+    new Date(b.scheduledAt ?? b.createdAt).getTime() - new Date(a.scheduledAt ?? a.createdAt).getTime()
+  );
   return { posts, total, page, totalPages: Math.ceil(total / limit) };
 }
 
@@ -59,12 +64,16 @@ async function getPickupPosts(): Promise<Post[]> {
       where: { published: false, scheduledAt: { lte: now, not: null } },
       data: { published: true },
     });
-    return await prisma.post.findMany({
+    const pickups = await prisma.post.findMany({
       where: { published: true, isPickup: true, showForVip: true } as Prisma.PostWhereInput,
       orderBy: { createdAt: "desc" },
       take: 6,
       select: postSelect,
     });
+    // scheduledAt ?? createdAt で新しい順にソート
+    return pickups.sort((a, b) =>
+      new Date(b.scheduledAt ?? b.createdAt).getTime() - new Date(a.scheduledAt ?? a.createdAt).getTime()
+    );
   } catch {
     return [];
   }
@@ -76,7 +85,7 @@ async function getRecommended(): Promise<Post[]> {
       where: { published: true, showForVip: true } as Prisma.PostWhereInput,
       orderBy: { views: "desc" },
       take: 5,
-      select: { id: true, title: true, slug: true, excerpt: true, eyecatch: true, published: true, views: true, createdAt: true },
+      select: { id: true, title: true, slug: true, excerpt: true, eyecatch: true, published: true, views: true, createdAt: true, scheduledAt: true },
     });
   } catch {
     return [];
@@ -218,7 +227,7 @@ export default async function VipMemberPage({
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-black leading-snug line-clamp-2 group-hover:opacity-60">{post.title}</p>
-                              <time className="text-xs text-black/40 mt-1 block">{formatDate(post.createdAt)}</time>
+                              <time className="text-xs text-black/40 mt-1 block">{formatDate(getDisplayDate(post))}</time>
                             </div>
                           </Link>
                         </li>
@@ -274,7 +283,7 @@ export default async function VipMemberPage({
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-black leading-snug line-clamp-2 group-hover:opacity-60">{post.title}</p>
-                            <time className="text-xs text-black/40 mt-1 block">{formatDate(post.createdAt)}</time>
+                            <time className="text-xs text-black/40 mt-1 block">{formatDate(getDisplayDate(post))}</time>
                           </div>
                         </Link>
                       </li>

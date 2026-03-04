@@ -8,6 +8,7 @@ import { compressAndUpload } from "@/lib/upload";
 import { prettyPrintHtml, normalizeHtmlForVisual } from "@/lib/editor-html";
 import EditorToolbar from "@/components/EditorToolbar";
 import ThumbnailGenerator from "@/components/ThumbnailGenerator";
+import LineImageGenerator from "@/components/LineImageGenerator";
 
 type EditorMode = "visual" | "code";
 type CustomEditor = { id: number; name: string; icon: string; html: string };
@@ -428,7 +429,7 @@ export default function NewPost() {
       const finalContent = mode === "visual" && editorRef.current ? editorRef.current.innerHTML : content;
       const res = await fetch("/api/posts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content: finalContent, eyecatch: eyecatch || null, published: shouldPublish ?? published, isPickup, showForGen, showForVip, showForVC, scheduledAt: scheduledAt || null, writerId: writerId || null }),
+        body: JSON.stringify({ title, content: finalContent, eyecatch: eyecatch || null, published: shouldPublish ?? published, isPickup, showForGen, showForVip, showForVC, scheduledAt: scheduledAt ? new Date(scheduledAt + ":00+09:00").toISOString() : null, writerId: writerId || null }),
       });
       if (res.ok) router.push("/admin/dashboard");
       else { const d = await res.json(); alert(d.error || "保存に失敗"); }
@@ -539,6 +540,13 @@ export default function NewPost() {
           )}
           <input ref={eyecatchInputRef} type="file" accept="image/*" onChange={handleEyecatchUpload} className="hidden" />
         </div>
+
+        <LineImageGenerator
+          title={title}
+          content={mode === "visual" && editorRef.current ? editorRef.current.innerHTML : content}
+          writerName={writers.find((w) => String(w.id) === writerId)?.name || ""}
+          writerAvatarUrl={writers.find((w) => String(w.id) === writerId)?.avatarUrl || null}
+        />
 
         <div className="mb-3">
           <button type="button" onClick={() => setGoogleDocDialogOpen(true)} className="text-sm text-blue-600 hover:text-blue-800 font-medium">

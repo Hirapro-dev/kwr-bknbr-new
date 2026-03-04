@@ -35,12 +35,16 @@ export async function GET(request: NextRequest) {
   }
   const skip = (page - 1) * limit;
 
+  /** 表示用の有効日付（scheduledAt ?? createdAt）を取得するヘルパー */
+  const getEffectiveDate = (p: { scheduledAt: Date | string | null; createdAt: Date | string }) =>
+    new Date(p.scheduledAt ?? p.createdAt).getTime();
+
   let orderBy: Prisma.PostOrderByWithRelationInput;
+  const useEffectiveDateSort = sort === "newest" || sort === "oldest";
   switch (sort) {
-    case "oldest": orderBy = { createdAt: "asc" }; break;
     case "views_desc": orderBy = { views: "desc" }; break;
     case "views_asc": orderBy = { views: "asc" }; break;
-    default: orderBy = { createdAt: "desc" };
+    default: orderBy = { createdAt: "desc" }; // 日付ソートはJS側で再ソート
   }
 
   const selectWithPickup = {
@@ -74,7 +78,7 @@ export async function GET(request: NextRequest) {
   };
 
   try {
-    const [posts, total] = await Promise.all([
+    const [rawPosts, total] = await Promise.all([
       prisma.post.findMany({
         where,
         orderBy,
@@ -84,6 +88,14 @@ export async function GET(request: NextRequest) {
       }),
       prisma.post.count({ where }),
     ]);
+    // 日付ソートの場合は scheduledAt ?? createdAt で再ソート
+    const posts = useEffectiveDateSort
+      ? rawPosts.sort((a, b) =>
+          sort === "newest"
+            ? getEffectiveDate(b) - getEffectiveDate(a)
+            : getEffectiveDate(a) - getEffectiveDate(b)
+        )
+      : rawPosts;
     return NextResponse.json({
       posts,
       total,
@@ -100,7 +112,7 @@ export async function GET(request: NextRequest) {
         { content: { contains: q, mode: "insensitive" } },
       ];
     }
-    const [posts, total] = await Promise.all([
+    const [rawPostsFallback, total] = await Promise.all([
       prisma.post.findMany({
         where: whereFallback,
         orderBy,
@@ -110,7 +122,15 @@ export async function GET(request: NextRequest) {
       }),
       prisma.post.count({ where: whereFallback }),
     ]);
-    const postsWithPickup = posts.map((p) => ({ ...p, isPickup: false, showForGen: true, showForVip: true, showForVC: false }));
+    // 日付ソートの場合は scheduledAt ?? createdAt で再ソート
+    const sortedFallback = useEffectiveDateSort
+      ? rawPostsFallback.sort((a, b) =>
+          sort === "newest"
+            ? getEffectiveDate(b) - getEffectiveDate(a)
+            : getEffectiveDate(a) - getEffectiveDate(b)
+        )
+      : rawPostsFallback;
+    const postsWithPickup = sortedFallback.map((p) => ({ ...p, isPickup: false, showForGen: true, showForVip: true, showForVC: false }));
     return NextResponse.json({
       posts: postsWithPickup,
       total,

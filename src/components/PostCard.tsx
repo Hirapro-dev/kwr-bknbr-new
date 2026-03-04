@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getDisplayDate } from "@/lib/utils";
 
 type PostCardProps = {
   post: {
@@ -9,6 +9,7 @@ type PostCardProps = {
     excerpt?: string | null;
     eyecatch?: string | null;
     createdAt: string | Date;
+    scheduledAt?: string | Date | null;
     writer?: { name: string; avatarUrl: string | null } | null;
   };
   variant?: "list" | "grid" | "pickup";
@@ -49,7 +50,7 @@ export default function PostCard({ post, variant = "grid", basePath }: PostCardP
                 </div>
               ) : null}
               {post.writer && <span className="text-sm text-white/80">{post.writer.name}</span>}
-              <time className="text-sm text-white/90">{formatDate(post.createdAt)}</time>
+              <time className="text-sm text-white/90">{formatDate(getDisplayDate(post))}</time>
             </div>
           </div>
         </article>
@@ -82,7 +83,7 @@ export default function PostCard({ post, variant = "grid", basePath }: PostCardP
               {post.title}
             </h2>
             <time className="mt-3 text-sm text-black/40 block">
-              {formatDate(post.createdAt)}
+              {formatDate(getDisplayDate(post))}
             </time>
             {post.writer && (
               <div className="flex items-center gap-2 mt-2">
@@ -126,7 +127,7 @@ export default function PostCard({ post, variant = "grid", basePath }: PostCardP
             {post.title}
           </h2>
           <time className="mt-2 text-xs text-black/40 block">
-            {formatDate(post.createdAt)}
+            {formatDate(getDisplayDate(post))}
           </time>
           {post.writer && (
             <div className="flex items-center gap-1.5 mt-1.5">
