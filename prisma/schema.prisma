@@ -95,3 +95,14 @@ model Writer {
 
   @@map("writers")
 }
+
+model LineTemplate {
+  id        Int      @id @default(autoincrement())
+  name      String   @default("デフォルト")
+  styles    String   // JSON形式でスタイル設定を保存
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("line_templates")
+}
