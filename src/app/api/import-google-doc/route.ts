@@ -110,9 +110,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "ドキュメントを取得できませんでした" }, { status: 400 });
     }
 
-    // ドキュメントメタデータのタイトルをフォールバックとして保持
+    // ドキュメントメタデータのタイトル（ファイル名）をフォールバックとして保持
     const metaTitle = data.title;
-    let headingTitle: string | null = null; // 本文中のHEADING_1から抽出
+    let docTitle: string | null = null; // 本文中の「タイトル」スタイルから抽出
     const contentElements: string[] = [];
 
     // body.content または tabs[0].documentTab.body.content（API のバージョンに依存）
@@ -128,8 +128,9 @@ export async function POST(request: NextRequest) {
 
       const namedStyleType = para.paragraphStyle?.namedStyleType ?? "NORMAL_TEXT";
 
-      // 最初のHEADING_1（タイトル）は本文から除外し、タイトルとして抽出
-      if (namedStyleType === "HEADING_1" && headingTitle === null) {
+      // 「タイトル」スタイル（TITLE）、「サブタイトル」（SUBTITLE）、「見出し1」（HEADING_1）を
+      // 記事タイトルとして抽出し、本文からは除外する（最初の1つのみ）
+      if (docTitle === null && (namedStyleType === "TITLE" || namedStyleType === "SUBTITLE" || namedStyleType === "HEADING_1")) {
         const titleParts: string[] = [];
         for (const pe of para.elements as { textRun?: { content?: string } }[]) {
           if (pe.textRun?.content != null) {
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
         }
         const extracted = titleParts.join("").trim();
         if (extracted) {
-          headingTitle = extracted;
+          docTitle = extracted;
           continue; // この段落は本文に含めない
         }
       }
@@ -218,8 +219,8 @@ export async function POST(request: NextRequest) {
     }
 
     const content = contentElements.join("\n");
-    // HEADING_1から抽出したタイトルを優先、なければドキュメントメタデータのタイトル
-    const title = headingTitle || metaTitle;
+    // 本文中の「タイトル」スタイルから抽出したテキストを優先、なければファイル名
+    const title = docTitle || metaTitle;
 
     // 文字化け検出（連続する置換文字 U+FFFD や制御文字の混在をチェック）
     const fullText = title + content;
