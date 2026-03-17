@@ -166,10 +166,55 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
 
     const blockEl = getQuoteOrNoteBlock();
 
-    // Shift+Enter または Cmd+Enter → 改行（<br>）のみ挿入
+    // Shift+Enter または Cmd+Enter → 現在の<p>内に<br>を挿入
     if (e.shiftKey || e.metaKey) {
       e.preventDefault();
-      document.execCommand("insertHTML", false, "<br>");
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      // カーソルが<p>の外にある場合は<p>で囲む
+      let parentBlock: HTMLElement | null = range.startContainer instanceof HTMLElement ? range.startContainer : range.startContainer.parentElement;
+      while (parentBlock && parentBlock !== editorRef.current && !["P", "DIV", "H1", "H2", "H3", "H4", "BLOCKQUOTE"].includes(parentBlock.tagName)) {
+        parentBlock = parentBlock.parentElement;
+      }
+      // <p>の外（直下のdivやテキストノード）の場合、<p>で包む
+      if (!parentBlock || parentBlock === editorRef.current) {
+        const p = document.createElement("p");
+        const startNode = range.startContainer;
+        const textNode = startNode.nodeType === Node.TEXT_NODE ? startNode : startNode.childNodes[range.startOffset] || startNode;
+        // 隣接するテキストノードやインライン要素をまとめて<p>に入れる
+        let node: Node | null = textNode;
+        while (node && node.parentNode === editorRef.current && node.nodeType === Node.TEXT_NODE) {
+          node = node.previousSibling;
+        }
+        node = node ? node.nextSibling : editorRef.current.firstChild;
+        const nodesToWrap: Node[] = [];
+        while (node && node.parentNode === editorRef.current) {
+          const next = node.nextSibling;
+          if (node instanceof HTMLElement && ["P", "H1", "H2", "H3", "H4", "BLOCKQUOTE", "DIV"].includes(node.tagName)) break;
+          nodesToWrap.push(node);
+          node = next;
+        }
+        if (nodesToWrap.length > 0) {
+          editorRef.current.insertBefore(p, nodesToWrap[0]);
+          for (const n of nodesToWrap) p.appendChild(n);
+        }
+        // <p>内にカーソルを再配置
+        const newRange = document.createRange();
+        newRange.setStart(p, p.childNodes.length);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+      }
+      // <br>を挿入してカーソルをその後ろに移動
+      const brRange = sel.getRangeAt(0);
+      const br = document.createElement("br");
+      brRange.insertNode(br);
+      // カーソルを<br>の後ろに移動
+      const afterBr = document.createRange();
+      afterBr.setStartAfter(br);
+      afterBr.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(afterBr);
       syncFromVisual();
       return;
     }
