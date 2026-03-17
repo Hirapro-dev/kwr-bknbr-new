@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   title: "投資のKAWARA版.com",
   description: "投資に関する最新情報をお届けするブログメディア",
   robots: { index: false, follow: false },
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
