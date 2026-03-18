@@ -53,7 +53,6 @@ a.btn.btn-c {
   transition: all 0.3s;
   text-align: center;
   text-decoration: none;
-  letter-spacing: 0.05em;
   color: #fff;
   border-radius: 100vh;
   background: linear-gradient(to right, #007adf 0%, #00ecbc 100%);
@@ -180,7 +179,6 @@ a.btn.btn-c.btn-c-header--full:hover {
   padding: 0.75rem 1.5rem !important;
   transition: all 0.3s;
   text-align: center;
-  letter-spacing: 0.05em;
   white-space: normal;
   word-break: keep-all;
   overflow-wrap: break-word;
@@ -252,7 +250,6 @@ a.btn.btn-c.btn-c-header--full:hover {
   text-align: center !important;
   vertical-align: middle;
   text-decoration: none !important;
-  letter-spacing: 0.1em;
   color: #212529 !important;
   border-radius: 0.5rem !important;
   white-space: normal;
