@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
         hostname: "**",
       },
     ],
+    // モダンな画像フォーマットに対応（表示速度向上）
+    formats: ["image/avif", "image/webp"],
   },
 };
 

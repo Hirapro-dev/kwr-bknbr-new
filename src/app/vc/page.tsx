@@ -38,14 +38,18 @@ async function getMenuCategories(): Promise<MenuCategory[]> {
   });
 }
 
-async function getPosts(page: number, q?: string, categorySlug?: string) {
-  const limit = 10;
-  const skip = (page - 1) * limit;
+// 予約公開チェック（1リクエストにつき1回だけ実行）
+async function publishScheduledPosts() {
   const now = new Date();
   await prisma.post.updateMany({
     where: { published: false, scheduledAt: { lte: now, not: null } },
     data: { published: true },
   });
+}
+
+async function getPosts(page: number, q?: string, categorySlug?: string) {
+  const limit = 10;
+  const skip = (page - 1) * limit;
   const where: Prisma.PostWhereInput = { published: true, showForVC: true };
   if (q?.trim()) {
     const k = q.trim();
@@ -72,11 +76,6 @@ async function getPosts(page: number, q?: string, categorySlug?: string) {
 
 async function getPickupPosts(): Promise<Post[]> {
   try {
-    const now = new Date();
-    await prisma.post.updateMany({
-      where: { published: false, scheduledAt: { lte: now, not: null } },
-      data: { published: true },
-    });
     const pickups = await prisma.post.findMany({
       where: { published: true, isPickup: true, showForVC: true } as Prisma.PostWhereInput,
       orderBy: { createdAt: "desc" },
@@ -128,6 +127,8 @@ export default async function VcMemberPage({
   let banners: Banner[];
   let menuCategories: MenuCategory[];
   try {
+    // 予約公開チェックを最初に1回だけ実行
+    await publishScheduledPosts();
     [data, pickupPosts, recommended, banners, menuCategories] = await Promise.all([
       getPosts(page, q, catSlug),
       getPickupPosts(),

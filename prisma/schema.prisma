@@ -31,6 +31,12 @@ model Post {
   categories     PostCategory[]
 
   @@index([published, createdAt])
+  @@index([published, showForGen, createdAt])
+  @@index([published, showForVip, createdAt])
+  @@index([published, showForVC, createdAt])
+  @@index([published, isPickup, createdAt])
+  @@index([published, scheduledAt])
+  @@index([views])
   @@map("posts")
 }
 
@@ -52,6 +58,7 @@ model PostCategory {
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@id([postId, categoryId])
+  @@index([categoryId])
   @@map("post_categories")
 }
 

@@ -51,7 +51,8 @@ async function getPost(slug: string): Promise<(Post & { showForVC?: boolean }) |
   }
 }
 
-function toComparableText(excerpt: string | null, content: string, maxLen = 1200): string {
+// テキストを比較用に正規化（excerptを優先、軽量化のためcontent全文は不要）
+function toComparableText(excerpt: string | null, content: string, maxLen = 500): string {
   const raw = (excerpt || content).replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
   return raw.slice(0, maxLen);
 }
@@ -80,20 +81,20 @@ async function getRecommendedPosts(slug: string): Promise<Omit<Post, "content">[
   if (!current) return [];
 
   const currentText = toComparableText(current.excerpt, current.content);
+  // content全文を取得せずexcerptのみで比較（DB転送量とメモリ削減）
   const candidates = await prisma.post.findMany({
     where: { published: true, showForVC: true, id: { not: current.id } } as Prisma.PostWhereInput,
     orderBy: { createdAt: "desc" },
-    take: 40,
+    take: 15,
     select: {
       id: true, title: true, slug: true, excerpt: true,
-      eyecatch: true, published: true, createdAt: true, content: true,
+      eyecatch: true, published: true, createdAt: true,
     },
   });
 
   const withScore = candidates.map((p) => {
-    const text = toComparableText(p.excerpt, p.content);
-    const { content: _c, ...rest } = p;
-    return { ...rest, score: similarityScore(currentText, text) };
+    const text = toComparableText(p.excerpt, "");
+    return { ...p, score: similarityScore(currentText, text) };
   });
   withScore.sort((a, b) => b.score - a.score);
   return withScore.slice(0, 3).map(({ score: _s, ...p }) => p);
