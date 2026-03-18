@@ -13,6 +13,7 @@ import LineImageGenerator from "@/components/LineImageGenerator";
 type EditorMode = "visual" | "code";
 type CustomEditor = { id: number; name: string; icon: string; html: string };
 type Writer = { id: number; name: string; avatarUrl: string | null };
+type CategoryItem = { id: number; name: string; slug: string };
 
 export default function NewPost() {
   const router = useRouter();
@@ -40,6 +41,8 @@ export default function NewPost() {
   const [buttonColor, setButtonColor] = useState("#1e40af");
   const [writers, setWriters] = useState<Writer[]>([]);
   const [writerId, setWriterId] = useState("");
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [isPickup, setIsPickup] = useState(false);
   const [showForGen, setShowForGen] = useState(true);
   const [showForVip, setShowForVip] = useState(true);
@@ -59,12 +62,14 @@ export default function NewPost() {
     const init = async () => {
       const res = await fetch("/api/auth/me");
       if (!res.ok) { router.push("/admin/login"); return; }
-      const [ceRes, wRes] = await Promise.all([
+      const [ceRes, wRes, catRes] = await Promise.all([
         fetch("/api/custom-editors"),
         fetch("/api/writers"),
+        fetch("/api/categories"),
       ]);
       if (ceRes.ok) setCustomEditors(await ceRes.json());
       if (wRes.ok) setWriters(await wRes.json());
+      if (catRes.ok) setCategories(await catRes.json());
     };
     init();
   }, [router]);
@@ -509,7 +514,7 @@ export default function NewPost() {
       const finalContent = mode === "visual" && editorRef.current ? editorRef.current.innerHTML : content;
       const res = await fetch("/api/posts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content: finalContent, eyecatch: eyecatch || null, published: shouldPublish ?? published, isPickup, showForGen, showForVip, showForVC, scheduledAt: scheduledAt ? new Date(scheduledAt + ":00+09:00").toISOString() : null, writerId: writerId || null }),
+        body: JSON.stringify({ title, content: finalContent, eyecatch: eyecatch || null, published: shouldPublish ?? published, isPickup, showForGen, showForVip, showForVC, scheduledAt: scheduledAt ? new Date(scheduledAt + ":00+09:00").toISOString() : null, writerId: writerId || null, categoryIds: selectedCategoryIds }),
       });
       if (res.ok) router.push("/admin/dashboard");
       else { const d = await res.json(); alert(d.error || "保存に失敗"); }
@@ -570,6 +575,25 @@ export default function NewPost() {
               <option value="">選択しない</option>
               {writers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
+          </div>
+        )}
+
+        {categories.length > 0 && (
+          <div className="mb-6">
+            <label className="block text-xs font-semibold text-slate-500 mb-2">カテゴリ</label>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((cat) => (
+                <label key={cat.id} className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" checked={selectedCategoryIds.includes(cat.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedCategoryIds([...selectedCategoryIds, cat.id]);
+                      else setSelectedCategoryIds(selectedCategoryIds.filter((id) => id !== cat.id));
+                    }}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-400" />
+                  <span className="text-xs md:text-sm text-slate-700">{cat.name}</span>
+                </label>
+              ))}
+            </div>
           </div>
         )}
 

@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
     scheduledAt: true,
     createdAt: true,
     writer: { select: { id: true, name: true, avatarUrl: true } },
+    categories: { select: { category: { select: { id: true, name: true, slug: true } } } },
   };
 
   const selectWithoutPickup = {
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { title, content, excerpt, eyecatch, published, scheduledAt, writerId, isPickup, showForGen, showForVip, showForVC } = body;
+    const { title, content, excerpt, eyecatch, published, scheduledAt, writerId, isPickup, showForGen, showForVip, showForVC, categoryIds } = body;
 
     const slug = generateSlug();
     const isScheduled = scheduledAt && new Date(scheduledAt) > new Date();
@@ -165,7 +166,11 @@ export async function POST(request: NextRequest) {
         showForVC: showForVC !== false,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
         writerId: writerId ? parseInt(writerId) : null,
+        categories: Array.isArray(categoryIds) && categoryIds.length > 0
+          ? { create: categoryIds.map((cid: number) => ({ categoryId: cid })) }
+          : undefined,
       },
+      include: { categories: { include: { category: true } } },
     });
 
     return NextResponse.json(post, { status: 201 });

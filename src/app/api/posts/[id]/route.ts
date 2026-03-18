@@ -28,7 +28,7 @@ export async function GET(
 
   if (isNaN(numId)) {
     try {
-      const post = await prisma.post.findUnique({ where: { slug: id }, include: { writer: true } });
+      const post = await prisma.post.findUnique({ where: { slug: id }, include: { writer: true, categories: { include: { category: true } } } });
       if (!post) return NextResponse.json({ error: "記事が見つかりません" }, { status: 404 });
       return NextResponse.json(post);
   } catch {
@@ -39,7 +39,7 @@ export async function GET(
   }
 
   try {
-    const post = await prisma.post.findUnique({ where: { id: numId }, include: { writer: true } });
+    const post = await prisma.post.findUnique({ where: { id: numId }, include: { writer: true, categories: { include: { category: true } } } });
     if (!post) return NextResponse.json({ error: "記事が見つかりません" }, { status: 404 });
     return NextResponse.json(post);
   } catch {
@@ -60,7 +60,7 @@ export async function PUT(
   const { id } = await params;
   try {
     const body = await request.json();
-    const { title, content, excerpt, eyecatch, published, scheduledAt, writerId, isPickup, showForGen, showForVip, showForVC } = body;
+    const { title, content, excerpt, eyecatch, published, scheduledAt, writerId, isPickup, showForGen, showForVip, showForVC, categoryIds } = body;
 
     const isScheduled = scheduledAt && new Date(scheduledAt) > new Date();
 
@@ -93,10 +93,20 @@ export async function PUT(
     } else if (excerpt !== undefined) data.excerpt = excerpt;
 
     try {
+      // カテゴリが指定された場合は洗い替え
+      if (Array.isArray(categoryIds)) {
+        const postId = parseInt(id);
+        await prisma.postCategory.deleteMany({ where: { postId } });
+        if (categoryIds.length > 0) {
+          await prisma.postCategory.createMany({
+            data: categoryIds.map((cid: number) => ({ postId, categoryId: cid })),
+          });
+        }
+      }
       const post = await prisma.post.update({
         where: { id: parseInt(id) },
         data,
-        include: { writer: true },
+        include: { writer: true, categories: { include: { category: true } } },
       });
       return NextResponse.json(post);
     } catch {

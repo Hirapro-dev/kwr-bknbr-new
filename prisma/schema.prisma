@@ -9,28 +9,49 @@ datasource db {
 }
 
 model Post {
-  id             Int        @id @default(autoincrement())
+  id             Int              @id @default(autoincrement())
   title          String
-  slug           String     @unique
+  slug           String           @unique
   content        String
   excerpt        String?
   eyecatch       String?
-  published      Boolean    @default(false)
-  isPickup       Boolean    @default(false)
-  showForGen     Boolean    @default(true)
-  showForVip     Boolean    @default(true)
-  showForVC      Boolean    @default(false)
+  published      Boolean          @default(false)
+  isPickup       Boolean          @default(false)
+  showForGen     Boolean          @default(true)
+  showForVip     Boolean          @default(true)
+  showForVC      Boolean          @default(false)
   scheduledAt    DateTime?
-  views          Int        @default(0)
+  views          Int              @default(0)
   writerId       Int?
-  writer         Writer?    @relation(fields: [writerId], references: [id])
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  writer         Writer?          @relation(fields: [writerId], references: [id])
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
   clicks         Click[]
   pageViews      PageView[]
+  categories     PostCategory[]
 
   @@index([published, createdAt])
   @@map("posts")
+}
+
+model Category {
+  id    Int            @id @default(autoincrement())
+  name  String         @unique
+  slug  String         @unique
+  order Int            @default(0)
+  posts PostCategory[]
+
+  @@map("categories")
+}
+
+model PostCategory {
+  postId     Int
+  categoryId Int
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([postId, categoryId])
+  @@map("post_categories")
 }
 
 model Admin {
