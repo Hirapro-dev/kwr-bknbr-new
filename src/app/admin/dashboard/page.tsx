@@ -19,6 +19,7 @@ type Post = {
   createdAt: string; excerpt: string | null; eyecatch: string | null;
   views: number; scheduledAt: string | null;
   writer?: { id: number; name: string } | null;
+  categories?: { category: { id: number; name: string; slug: string } }[];
 };
 
 type Writer = { id: number; name: string };
@@ -320,6 +321,7 @@ export default function AdminDashboard() {
                   <tr>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">タイトル</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">執筆者</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">カテゴリ</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">会員</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">ステータス</th>
                     <th className="text-center px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">人気</th>
@@ -338,6 +340,19 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-5 py-3.5 text-sm text-slate-500">
                         {post.writer?.name || <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {post.categories && post.categories.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {post.categories.map((pc) => (
+                              <span key={pc.category.id} className="inline-block bg-slate-100 text-slate-600 text-[11px] px-1.5 py-0.5 rounded">
+                                {pc.category.name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300 text-xs">—</span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-xs text-slate-600">
                         {memberLabel(post)}
@@ -405,6 +420,15 @@ export default function AdminDashboard() {
                         <span className="text-xs text-slate-400 mt-1 block">{post.writer.name}</span>
                       )}
                       <span className="text-[11px] text-slate-500 mt-0.5 block">会員: {memberLabel(post)}</span>
+                      {post.categories && post.categories.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {post.categories.map((pc) => (
+                            <span key={pc.category.id} className="inline-block bg-slate-100 text-slate-600 text-[11px] px-1.5 py-0.5 rounded">
+                              {pc.category.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 mt-2 flex-wrap">
                         <button onClick={() => togglePublish(post)}
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
