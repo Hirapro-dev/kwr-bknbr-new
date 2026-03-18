@@ -11,10 +11,17 @@ export async function PUT(
 
   const { id } = await params;
   try {
-    const { name, icon, html, order } = await request.json();
+    const { name, icon, html, order, defaultInsert, defaultPosition } = await request.json();
+    const data: { name?: string; icon?: string; html?: string; order?: number; defaultInsert?: boolean; defaultPosition?: string } = {};
+    if (name !== undefined) data.name = name;
+    if (icon !== undefined) data.icon = icon;
+    if (html !== undefined) data.html = html;
+    if (order !== undefined) data.order = order;
+    if (defaultInsert !== undefined) data.defaultInsert = !!defaultInsert;
+    if (defaultPosition !== undefined) data.defaultPosition = defaultPosition === "top" ? "top" : "bottom";
     const editor = await prisma.customEditor.update({
       where: { id: parseInt(id) },
-      data: { name, icon, html, order },
+      data,
     });
     return NextResponse.json(editor);
   } catch {

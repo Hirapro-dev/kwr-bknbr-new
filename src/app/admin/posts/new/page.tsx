@@ -11,7 +11,7 @@ import ThumbnailGenerator from "@/components/ThumbnailGenerator";
 import LineImageGenerator from "@/components/LineImageGenerator";
 
 type EditorMode = "visual" | "code";
-type CustomEditor = { id: number; name: string; icon: string; html: string };
+type CustomEditor = { id: number; name: string; icon: string; html: string; defaultInsert?: boolean; defaultPosition?: string };
 type Writer = { id: number; name: string; avatarUrl: string | null };
 type CategoryItem = { id: number; name: string; slug: string };
 
@@ -511,7 +511,11 @@ export default function NewPost() {
     if (mode === "visual" && editorRef.current) syncFromVisual();
     setSaving(true);
     try {
-      const finalContent = mode === "visual" && editorRef.current ? editorRef.current.innerHTML : content;
+      // デフォルト挿入HTMLをエディター上部・下部に結合
+      const topHtmlParts = customEditors.filter((ce) => ce.defaultInsert && ce.defaultPosition === "top").map((ce) => ce.html);
+      const bottomHtmlParts = customEditors.filter((ce) => ce.defaultInsert && ce.defaultPosition !== "top").map((ce) => ce.html);
+      const editorContent = mode === "visual" && editorRef.current ? editorRef.current.innerHTML : content;
+      const finalContent = [...topHtmlParts, editorContent, ...bottomHtmlParts].join("\n");
       const res = await fetch("/api/posts", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, content: finalContent, eyecatch: eyecatch || null, published: shouldPublish ?? published, isPickup, showForGen, showForVip, showForVC, scheduledAt: scheduledAt ? new Date(scheduledAt + ":00+09:00").toISOString() : null, writerId: writerId || null, categoryIds: selectedCategoryIds }),
@@ -660,6 +664,14 @@ export default function NewPost() {
             Google ドキュメントから取り込み
           </button>
         </div>
+        {/* デフォルト挿入: 上部プレビュー */}
+        {customEditors.filter((ce) => ce.defaultInsert && ce.defaultPosition === "top").length > 0 && (
+          <div className="mb-2 border border-dashed border-blue-300 rounded-lg bg-blue-50/30 px-3 md:px-6 py-2">
+            <p className="text-[10px] text-blue-400 font-medium mb-1">デフォルト挿入（上部）— 保存時に自動で記事上部に挿入されます</p>
+            <div className="prose max-w-none text-sm opacity-70" dangerouslySetInnerHTML={{ __html: customEditors.filter((ce) => ce.defaultInsert && ce.defaultPosition === "top").map((ce) => ce.html).join("\n") }} />
+          </div>
+        )}
+
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
           <div onDragOver={(e) => { e.preventDefault(); setEditorDragOver(true); }} onDragLeave={() => setEditorDragOver(false)} onDrop={handleEditorDrop} className="relative">
             {editorDragOver && <div className="absolute inset-0 bg-blue-50/80 border-2 border-dashed border-blue-400 rounded-lg z-10 flex items-center justify-center pointer-events-none"><FiUploadCloud size={36} className="text-blue-400" /></div>}
@@ -671,6 +683,14 @@ export default function NewPost() {
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
         </div>
+
+        {/* デフォルト挿入: 下部プレビュー */}
+        {customEditors.filter((ce) => ce.defaultInsert && ce.defaultPosition !== "top").length > 0 && (
+          <div className="mt-2 border border-dashed border-blue-300 rounded-lg bg-blue-50/30 px-3 md:px-6 py-2">
+            <p className="text-[10px] text-blue-400 font-medium mb-1">デフォルト挿入（下部）— 保存時に自動で記事下部に挿入されます</p>
+            <div className="prose max-w-none text-sm opacity-70" dangerouslySetInnerHTML={{ __html: customEditors.filter((ce) => ce.defaultInsert && ce.defaultPosition !== "top").map((ce) => ce.html).join("\n") }} />
+          </div>
+        )}
 
         {linkDialogOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={() => { setLinkDialogOpen(false); editingLinkAnchorRef.current = null; }}>

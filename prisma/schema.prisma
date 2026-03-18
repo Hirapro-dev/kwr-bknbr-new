@@ -87,11 +87,13 @@ model PageView {
 }
 
 model CustomEditor {
-  id    Int    @id @default(autoincrement())
-  name  String
-  icon  String
-  html  String
-  order Int    @default(0)
+  id              Int     @id @default(autoincrement())
+  name            String
+  icon            String
+  html            String
+  order           Int     @default(0)
+  defaultInsert   Boolean @default(false)
+  defaultPosition String  @default("bottom") // "top" | "bottom"
 
   @@map("custom_editors")
 }

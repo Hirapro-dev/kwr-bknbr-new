@@ -12,10 +12,14 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "未認証" }, { status: 401 });
 
   try {
-    const { name, icon, html } = await request.json();
+    const { name, icon, html, defaultInsert, defaultPosition } = await request.json();
     const count = await prisma.customEditor.count();
     const editor = await prisma.customEditor.create({
-      data: { name, icon, html, order: count },
+      data: {
+        name, icon, html, order: count,
+        defaultInsert: defaultInsert === true,
+        defaultPosition: defaultPosition === "top" ? "top" : "bottom",
+      },
     });
     return NextResponse.json(editor, { status: 201 });
   } catch {

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiPlus, FiTrash2, FiSave, FiEdit2, FiX } from "react-icons/fi";
 
-type CustomEditor = { id: number; name: string; icon: string; html: string; order: number };
+type CustomEditor = { id: number; name: string; icon: string; html: string; order: number; defaultInsert: boolean; defaultPosition: string };
 
 const ICON_SUGGESTIONS = ["⚡", "📌", "💡", "🔥", "🎯", "📢", "⭐", "🏷️", "📎", "🔗", "📊", "🎨", "✅", "❗", "💬", "🖊️"];
 
@@ -16,6 +16,8 @@ export default function CustomEditorsPage() {
   const [newName, setNewName] = useState("");
   const [newIcon, setNewIcon] = useState("⚡");
   const [newHtml, setNewHtml] = useState("");
+  const [newDefaultInsert, setNewDefaultInsert] = useState(false);
+  const [newDefaultPosition, setNewDefaultPosition] = useState("bottom");
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   // 編集中のアイテムID
@@ -23,6 +25,8 @@ export default function CustomEditorsPage() {
   const [editName, setEditName] = useState("");
   const [editIcon, setEditIcon] = useState("");
   const [editHtml, setEditHtml] = useState("");
+  const [editDefaultInsert, setEditDefaultInsert] = useState(false);
+  const [editDefaultPosition, setEditDefaultPosition] = useState("bottom");
   const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => {
@@ -42,12 +46,12 @@ export default function CustomEditorsPage() {
     try {
       const res = await fetch("/api/custom-editors", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName, icon: newIcon, html: newHtml }),
+        body: JSON.stringify({ name: newName, icon: newIcon, html: newHtml, defaultInsert: newDefaultInsert, defaultPosition: newDefaultPosition }),
       });
       if (res.ok) {
         const created = await res.json();
         setEditors([...editors, created]);
-        setNewName(""); setNewIcon("⚡"); setNewHtml(""); setShowForm(false);
+        setNewName(""); setNewIcon("⚡"); setNewHtml(""); setNewDefaultInsert(false); setNewDefaultPosition("bottom"); setShowForm(false);
       }
     } catch { alert("作成に失敗しました"); }
     finally { setSaving(false); }
@@ -66,12 +70,15 @@ export default function CustomEditorsPage() {
     setEditName(editor.name);
     setEditIcon(editor.icon);
     setEditHtml(editor.html);
+    setEditDefaultInsert(editor.defaultInsert);
+    setEditDefaultPosition(editor.defaultPosition || "bottom");
   };
 
   // 編集キャンセル
   const cancelEdit = () => {
     setEditingId(null);
     setEditName(""); setEditIcon(""); setEditHtml("");
+    setEditDefaultInsert(false); setEditDefaultPosition("bottom");
   };
 
   // 編集保存
@@ -82,7 +89,7 @@ export default function CustomEditorsPage() {
     try {
       const res = await fetch(`/api/custom-editors/${editingId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editName, icon: editIcon, html: editHtml }),
+        body: JSON.stringify({ name: editName, icon: editIcon, html: editHtml, defaultInsert: editDefaultInsert, defaultPosition: editDefaultPosition }),
       });
       if (res.ok) {
         const updated = await res.json();
@@ -143,6 +150,28 @@ export default function CustomEditorsPage() {
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-blue-400 resize-y" />
               </div>
 
+              <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={newDefaultInsert} onChange={(e) => setNewDefaultInsert(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-400" />
+                  <span className="text-xs font-semibold text-slate-700">デフォルト挿入</span>
+                  <span className="text-[11px] text-slate-400">（新規記事作成時に自動で挿入される）</span>
+                </label>
+                {newDefaultInsert && (
+                  <div className="flex items-center gap-3 mt-2 ml-6">
+                    <span className="text-xs text-slate-500">挿入位置:</span>
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <input type="radio" name="new-pos" value="top" checked={newDefaultPosition === "top"} onChange={() => setNewDefaultPosition("top")} className="text-blue-600 focus:ring-blue-400" />
+                      <span className="text-xs text-slate-700">エディター上部</span>
+                    </label>
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <input type="radio" name="new-pos" value="bottom" checked={newDefaultPosition === "bottom"} onChange={() => setNewDefaultPosition("bottom")} className="text-blue-600 focus:ring-blue-400" />
+                      <span className="text-xs text-slate-700">エディター下部</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-2">
                 <button onClick={handleCreate} disabled={saving}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50">
@@ -194,6 +223,27 @@ export default function CustomEditorsPage() {
                       <textarea value={editHtml} onChange={(e) => setEditHtml(e.target.value)} rows={5}
                         className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-blue-400 resize-y" />
                     </div>
+                    <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={editDefaultInsert} onChange={(e) => setEditDefaultInsert(e.target.checked)}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-400" />
+                        <span className="text-xs font-semibold text-slate-700">デフォルト挿入</span>
+                        <span className="text-[11px] text-slate-400">（新規記事作成時に自動で挿入される）</span>
+                      </label>
+                      {editDefaultInsert && (
+                        <div className="flex items-center gap-3 mt-2 ml-6">
+                          <span className="text-xs text-slate-500">挿入位置:</span>
+                          <label className="flex items-center gap-1 cursor-pointer">
+                            <input type="radio" name="edit-pos" value="top" checked={editDefaultPosition === "top"} onChange={() => setEditDefaultPosition("top")} className="text-blue-600 focus:ring-blue-400" />
+                            <span className="text-xs text-slate-700">エディター上部</span>
+                          </label>
+                          <label className="flex items-center gap-1 cursor-pointer">
+                            <input type="radio" name="edit-pos" value="bottom" checked={editDefaultPosition === "bottom"} onChange={() => setEditDefaultPosition("bottom")} className="text-blue-600 focus:ring-blue-400" />
+                            <span className="text-xs text-slate-700">エディター下部</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <button onClick={handleUpdate} disabled={editSaving}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50">
@@ -210,7 +260,14 @@ export default function CustomEditorsPage() {
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-2xl">{editor.icon}</span>
                       <div className="min-w-0">
-                        <p className="font-semibold text-sm text-slate-900">{editor.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm text-slate-900">{editor.name}</p>
+                          {editor.defaultInsert && (
+                            <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded font-medium">
+                              デフォルト挿入（{editor.defaultPosition === "top" ? "上部" : "下部"}）
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-400 font-mono truncate max-w-md">{editor.html.slice(0, 80)}...</p>
                       </div>
                     </div>
