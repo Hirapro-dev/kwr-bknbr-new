@@ -25,6 +25,7 @@ type ToolbarProps = {
   onInsertQuote: (color?: string) => void;
   onInsertButton: (color?: string) => void;
   onInsertCustomHtml: (html: string) => void;
+  onInsertList: (type: "disc" | "none" | "ordered") => void;
 };
 
 function Dropdown({ label, icon, children, dark = false }: { label: string; icon: React.ReactNode; children: React.ReactNode; dark?: boolean }) {
@@ -94,7 +95,7 @@ const TB = "p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg t
 export default function EditorToolbar({
   mode, uploading, customEditors = [],
   onToggleMode, onExecCommand, onInsertHeading, onInsertLink, onInsertImage,
-  onInsertYoutube, onInsertNote, onInsertQuote, onInsertButton, onInsertCustomHtml,
+  onInsertYoutube, onInsertNote, onInsertQuote, onInsertButton, onInsertCustomHtml, onInsertList,
 }: ToolbarProps) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
   return (
@@ -172,6 +173,11 @@ export default function EditorToolbar({
                 <button onClick={() => onExecCommand("strikeThrough")} className={TB} title="取り消し線"><span className="text-xs font-bold line-through">S</span></button>
                 <ColorPicker label="文字色" icon={<span className="text-xs font-bold border-b-2 border-red-500">A</span>} onSelect={(c) => onExecCommand("foreColor", c)} />
                 <ColorPicker label="背景色" icon={<span className="text-xs font-bold bg-yellow-200 px-0.5 rounded">A</span>} onSelect={(c) => onExecCommand("hiliteColor", c)} />
+                <Dropdown label="リスト" icon={<FiList size={14} />}>
+                  <DropdownItem onClick={() => onInsertList("disc")}>・ありリスト</DropdownItem>
+                  <DropdownItem onClick={() => onInsertList("none")}>・なしリスト</DropdownItem>
+                  <DropdownItem onClick={() => onInsertList("ordered")}>番号リスト</DropdownItem>
+                </Dropdown>
                 <button onClick={onInsertLink} className={TB} title="リンク"><FiLink size={14} /></button>
                 <button onClick={onInsertImage} disabled={uploading} className={`${TB} disabled:opacity-50`} title="画像"><FiImage size={14} /></button>
                 <button onClick={onInsertYoutube} className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="YouTube"><FiYoutube size={14} /></button>
@@ -302,8 +308,11 @@ export default function EditorToolbar({
 
             <div className="w-px h-5 bg-slate-200 mx-1" />
 
-            <button onClick={() => onExecCommand("insertUnorderedList")} className={TB} title="箇条書き"><FiList size={14} /></button>
-            <button onClick={() => onExecCommand("insertOrderedList")} className={TB} title="番号リスト"><FiAlignLeft size={14} /></button>
+            <Dropdown label="リスト" icon={<FiList size={14} />}>
+              <DropdownItem onClick={() => onInsertList("disc")}>・ありリスト</DropdownItem>
+              <DropdownItem onClick={() => onInsertList("none")}>・なしリスト</DropdownItem>
+              <DropdownItem onClick={() => onInsertList("ordered")}>番号リスト</DropdownItem>
+            </Dropdown>
 
             <div className="w-px h-5 bg-slate-200 mx-1" />
 

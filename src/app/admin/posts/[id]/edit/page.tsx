@@ -368,6 +368,36 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
     else setContent((p) => (p.trim() ? p.trimEnd() + "\n\n" : "") + html + "\n\n");
   };
 
+  // リスト挿入（・あり / ・なし / 番号）
+  const insertList = (type: "disc" | "none" | "ordered") => {
+    if (mode === "visual") {
+      if (type === "ordered") {
+        document.execCommand("insertOrderedList", false);
+      } else {
+        document.execCommand("insertUnorderedList", false);
+        // ・なしリストの場合、生成された<ul>にlist-noneクラスを付与
+        if (type === "none") {
+          const sel = window.getSelection();
+          if (sel?.anchorNode) {
+            let node: HTMLElement | null = sel.anchorNode instanceof HTMLElement ? sel.anchorNode : sel.anchorNode.parentElement;
+            while (node && node !== editorRef.current && node.tagName !== "UL") node = node.parentElement;
+            if (node && node.tagName === "UL") node.classList.add("list-none");
+          }
+        }
+      }
+      editorRef.current?.focus();
+      syncFromVisual();
+    } else {
+      if (type === "ordered") {
+        insertHtml("<ol>\n<li>項目</li>\n</ol>");
+      } else if (type === "none") {
+        insertHtml('<ul class="list-none">\n<li>項目</li>\n</ul>');
+      } else {
+        insertHtml("<ul>\n<li>項目</li>\n</ul>");
+      }
+    }
+  };
+
   const blockColorClass = (hex: string) => {
     const m: Record<string, string> = { "#3b82f6": "blue", "#22c55e": "green", "#ef4444": "red", "#f97316": "orange", "#a855f7": "purple", "#6b7280": "gray" };
     return m[hex.toLowerCase()] ?? "blue";
@@ -554,7 +584,7 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
         onExecCommand={execCommand} onInsertHeading={insertHeading} onInsertLink={insertLink}
         onInsertImage={() => fileInputRef.current?.click()} onInsertYoutube={insertYoutube}
         onInsertNote={insertNote} onInsertQuote={insertQuote} onInsertButton={insertButton}
-        onInsertCustomHtml={insertHtml} />
+        onInsertCustomHtml={insertHtml} onInsertList={insertList} />
 
       {/* モバイル: ヘッダー48px + ツールバー約44px = 92px + 余白、デスクトップ: 56px + ツールバー約68px = 124px */}
       <main className={`max-w-4xl mx-auto px-3 md:px-4 py-4 md:py-8 ${showSchedule ? "pt-[140px] md:pt-[160px]" : "pt-[104px] md:pt-[124px]"}`}>

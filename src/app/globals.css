@@ -154,13 +154,15 @@ a.btn.btn-c.btn-c-header--full:hover {
 .article-detail [data-article-content] s { text-decoration: line-through !important; }
 .prose ul, .prose ol { margin-bottom: 1rem; padding-left: 1.5rem; }
 .prose ul { list-style: disc; }
+.prose ul.list-none { list-style: none; padding-left: 0; }
 .prose ol { list-style: decimal; }
 .prose li {
   font-size: 16px;
   line-height: 1.5;
-  padding: 15px 0;
-  margin-bottom: 0.25rem;
+  padding: 5px 0;
 }
+/* 記事詳細ページ：・なしリスト */
+.article-detail [data-article-content] ul.list-none { list-style: none; padding-left: 0; }
 .prose a:not(.btn):not([style*="background"]) {
   font-size: 16px;
   line-height: 1.5;
