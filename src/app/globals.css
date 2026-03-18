@@ -176,7 +176,7 @@ a.btn.btn-c.btn-c-header--full:hover {
 .prose a[style*="background"] {
   text-decoration: none !important;
   display: inline-block;
-  min-width: 350px;
+  min-width: 640px;
   font-size: 1rem !important;
   padding: 0.75rem 1.5rem !important;
   transition: all 0.3s;
@@ -244,7 +244,7 @@ a.btn.btn-c.btn-c-header--full:hover {
   line-height: 1.5 !important;
   position: relative;
   display: inline-block !important;
-  min-width: 350px;
+  min-width: 640px;
   padding: 1rem 1.5rem !important;
   cursor: pointer;
   user-select: none;
@@ -277,7 +277,7 @@ a.btn.btn-c.btn-c-header--full:hover {
 .prose a.btn.btn-c {
   font-size: 1rem !important;
   padding: 1.5rem 2.2rem !important;
-  min-width: 350px;
+  min-width: 640px;
   color: #fff !important;
   border-radius: 100vh !important;
   background: linear-gradient(to right, #007adf 0%, #00ecbc 100%) !important;
@@ -306,7 +306,7 @@ a.btn.btn-c.btn-c-header--full:hover {
 .prose a.btn.btn-k {
   font-size: 1rem !important;
   padding: 1.5rem 2.2rem !important;
-  min-width: 350px;
+  min-width: 640px;
   color: #fff !important;
   border-radius: 100vh !important;
   background: linear-gradient(to right, #1f2937 0%, #374151 50%, #1f2937 100%) !important;
@@ -335,7 +335,7 @@ a.btn.btn-c.btn-c-header--full:hover {
 .prose a.btn.btn-r {
   font-size: 1rem !important;
   padding: 1.5rem 2.2rem !important;
-  min-width: 350px;
+  min-width: 640px;
   color: #fff !important;
   border-radius: 100vh !important;
   background: linear-gradient(to right, #e53e3e 0%, #f56565 50%, #fc8181 100%) !important;
@@ -364,7 +364,7 @@ a.btn.btn-c.btn-c-header--full:hover {
 .prose a.btn.btn-g {
   font-size: 1rem !important;
   padding: 1.5rem 2.2rem !important;
-  min-width: 350px;
+  min-width: 640px;
   color: #fff !important;
   border-radius: 100vh !important;
   background: linear-gradient(to right, #38a169 0%, #48bb78 50%, #68d391 100%) !important;
@@ -393,7 +393,7 @@ a.btn.btn-c.btn-c-header--full:hover {
 .prose a.btn.btn-o {
   font-size: 1rem !important;
   padding: 1.5rem 2.2rem !important;
-  min-width: 350px;
+  min-width: 640px;
   color: #fff !important;
   border-radius: 100vh !important;
   background: linear-gradient(to right, #dd6b20 0%, #ed8936 50%, #f6ad55 100%) !important;
@@ -422,7 +422,7 @@ a.btn.btn-c.btn-c-header--full:hover {
 .prose a.btn.btn-p {
   font-size: 1rem !important;
   padding: 1.5rem 2.2rem !important;
-  min-width: 350px;
+  min-width: 640px;
   color: #fff !important;
   border-radius: 100vh !important;
   background: linear-gradient(to right, #805ad5 0%, #9f7aea 50%, #b794f4 100%) !important;
