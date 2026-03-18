@@ -22,6 +22,7 @@ type Post = {
 };
 
 type Banner = { id: number; label: string; url: string; imageUrl: string | null; media: string; order: number };
+type MenuCategory = { id: number; name: string; slug: string };
 
 const postSelect = {
   id: true, title: true, slug: true, excerpt: true,
@@ -29,7 +30,15 @@ const postSelect = {
   writer: { select: { name: true, avatarUrl: true } },
 } as const;
 
-async function getPosts(page: number, q?: string) {
+async function getMenuCategories(): Promise<MenuCategory[]> {
+  return prisma.category.findMany({
+    where: { showInMenu: true },
+    orderBy: { order: "asc" },
+    select: { id: true, name: true, slug: true },
+  });
+}
+
+async function getPosts(page: number, q?: string, categorySlug?: string) {
   const limit = 10;
   const skip = (page - 1) * limit;
   const now = new Date();
@@ -45,6 +54,10 @@ async function getPosts(page: number, q?: string) {
       { excerpt: { contains: k, mode: "insensitive" } },
       { content: { contains: k, mode: "insensitive" } },
     ];
+  }
+  // カテゴリフィルタ
+  if (categorySlug) {
+    where.categories = { some: { category: { slug: categorySlug } } };
   }
   const [rawPosts, total] = await Promise.all([
     prisma.post.findMany({ where, orderBy: { createdAt: "desc" }, skip, take: limit, select: postSelect }),
@@ -103,34 +116,67 @@ async function getBanners(): Promise<Banner[]> {
 export default async function VcMemberPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; q?: string }>;
+  searchParams: Promise<{ page?: string; q?: string; cat?: string }>;
 }) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
   const q = params.q?.trim() || undefined;
+  const catSlug = params.cat?.trim() || undefined;
   let data: { posts: Post[]; total: number; page: number; totalPages: number };
   let pickupPosts: Post[];
   let recommended: Post[];
   let banners: Banner[];
+  let menuCategories: MenuCategory[];
   try {
-    [data, pickupPosts, recommended, banners] = await Promise.all([
-      getPosts(page, q),
+    [data, pickupPosts, recommended, banners, menuCategories] = await Promise.all([
+      getPosts(page, q, catSlug),
       getPickupPosts(),
       getRecommended(),
       getBanners(),
+      getMenuCategories(),
     ]);
   } catch {
     data = { posts: [], total: 0, page: 1, totalPages: 0 };
     pickupPosts = [];
     recommended = [];
     banners = [];
+    menuCategories = [];
   }
+
+  // カテゴリ選択中のカテゴリ名を取得
+  const activeCategoryName = catSlug ? menuCategories.find((c) => c.slug === catSlug)?.name : undefined;
+  // カテゴリ選択中はPickupを非表示
+  const showPickup = !catSlug && !q && page === 1 && pickupPosts.length > 0;
+  // ページネーション用basePath
+  const paginationBase = catSlug ? `/vc?cat=${catSlug}` : "/vc";
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
       <Header variant="vc" homeHref="/vc" />
       <main className="flex-1">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          {/* カテゴリタブ */}
+          {menuCategories.length > 0 && (
+            <div className="pt-4 pb-2 border-b border-black/10 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <div className="flex items-center gap-1 min-w-max">
+                <Link href="/vc"
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors whitespace-nowrap ${
+                    !catSlug ? "bg-black text-white" : "text-black/60 hover:text-black hover:bg-black/5"
+                  }`}>
+                  すべて
+                </Link>
+                {menuCategories.map((cat) => (
+                  <Link key={cat.id} href={`/vc?cat=${cat.slug}`}
+                    className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors whitespace-nowrap ${
+                      catSlug === cat.slug ? "bg-black text-white" : "text-black/60 hover:text-black hover:bg-black/5"
+                    }`}>
+                    {cat.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="lg:hidden pt-6 pb-4 border-b border-black/10">
             <form action="/vc" method="get" className="relative max-w-2xl">
               <input type="hidden" name="page" value="1" />
@@ -143,7 +189,7 @@ export default async function VcMemberPage({
           </div>
           <div className="lg:flex lg:gap-10">
             <div className="flex-1 min-w-0">
-              {!q && page === 1 && pickupPosts.length > 0 && (
+              {showPickup && (
                 <section className="pt-8 pb-6 border-b border-black/10">
                   <div className="flex items-baseline gap-3 mb-6">
                     <h2 className="text-2xl md:text-3xl font-black tracking-tight text-black">PickUp</h2>
@@ -160,6 +206,8 @@ export default async function VcMemberPage({
                 <div className="flex items-baseline gap-3 mb-6">
                   {q ? (
                     <h2 className="text-2xl md:text-3xl font-black tracking-tight text-black">検索：{q}</h2>
+                  ) : activeCategoryName ? (
+                    <h2 className="text-2xl md:text-3xl font-black tracking-tight text-black">{activeCategoryName}</h2>
                   ) : (
                     <>
                       <h2 className="text-2xl md:text-3xl font-black tracking-tight text-black">Latest</h2>
@@ -179,13 +227,13 @@ export default async function VcMemberPage({
                         <PostCard key={post.id} post={post} variant="grid" basePath="/vc" />
                       ))}
                     </div>
-                    <Pagination currentPage={data.page} totalPages={data.totalPages} basePath="/vc" />
+                    <Pagination currentPage={data.page} totalPages={data.totalPages} basePath={paginationBase} />
                   </>
                 ) : (
                   <div className="text-center py-20">
                     <span className="font-black text-5xl text-black/10">KWR</span>
                     <h2 className="text-lg font-bold text-black mt-4">記事はまだありません</h2>
-                    <p className="text-black/40 text-sm mt-1">{q ? "検索条件に一致する記事がありません" : "仮想通貨長者向けの記事はありません"}</p>
+                    <p className="text-black/40 text-sm mt-1">{q ? "検索条件に一致する記事がありません" : activeCategoryName ? `${activeCategoryName}の記事はありません` : "仮想通貨長者向けの記事はありません"}</p>
                   </div>
                 )}
               </section>

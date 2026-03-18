@@ -35,11 +35,12 @@ model Post {
 }
 
 model Category {
-  id    Int            @id @default(autoincrement())
-  name  String         @unique
-  slug  String         @unique
-  order Int            @default(0)
-  posts PostCategory[]
+  id         Int            @id @default(autoincrement())
+  name       String         @unique
+  slug       String         @unique
+  order      Int            @default(0)
+  showInMenu Boolean        @default(false)
+  posts      PostCategory[]
 
   @@map("categories")
 }

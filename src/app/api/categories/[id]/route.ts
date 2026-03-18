@@ -12,10 +12,11 @@ export async function PUT(
   const { id } = await params;
   try {
     const body = await request.json();
-    const { name, order } = body;
-    const data: { name?: string; order?: number } = {};
+    const { name, order, showInMenu } = body;
+    const data: { name?: string; order?: number; showInMenu?: boolean } = {};
     if (name !== undefined) data.name = String(name);
     if (typeof order === "number") data.order = order;
+    if (showInMenu !== undefined) data.showInMenu = !!showInMenu;
     const category = await prisma.category.update({
       where: { id: parseInt(id) },
       data,

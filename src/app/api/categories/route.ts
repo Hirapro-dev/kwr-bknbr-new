@@ -6,7 +6,7 @@ import { getAuthUser } from "@/lib/auth";
 export async function GET() {
   const categories = await prisma.category.findMany({
     orderBy: { order: "asc" },
-    select: { id: true, name: true, slug: true, order: true },
+    select: { id: true, name: true, slug: true, order: true, showInMenu: true },
   });
   return NextResponse.json(categories);
 }
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "未認証" }, { status: 401 });
   try {
     const body = await request.json();
-    const { name, order } = body;
+    const { name, order, showInMenu } = body;
     if (!name) return NextResponse.json({ error: "名前は必須です" }, { status: 400 });
     // slugはnameからローマ字/英語ベースで自動生成（日本語の場合はencodeURIComponent）
     const slug = name.toLowerCase().replace(/[^a-z0-9\u3040-\u9fff]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || `cat-${Date.now()}`;
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
         name: String(name),
         slug,
         order: typeof order === "number" ? order : 0,
+        showInMenu: showInMenu === true,
       },
     });
     return NextResponse.json(category);

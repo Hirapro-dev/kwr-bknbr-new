@@ -5,17 +5,19 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiPlus, FiTrash2, FiEdit2, FiSave, FiX } from "react-icons/fi";
 
-type Category = { id: number; name: string; slug: string; order: number };
+type Category = { id: number; name: string; slug: string; order: number; showInMenu: boolean };
 
 export default function CategoriesPage() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
+  const [newShowInMenu, setNewShowInMenu] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
+  const [editShowInMenu, setEditShowInMenu] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => {
@@ -36,12 +38,12 @@ export default function CategoriesPage() {
       const res = await fetch("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), order: categories.length }),
+        body: JSON.stringify({ name: name.trim(), order: categories.length, showInMenu: newShowInMenu }),
       });
       if (res.ok) {
         const created = await res.json();
         setCategories([...categories, created]);
-        setName(""); setShowForm(false);
+        setName(""); setNewShowInMenu(false); setShowForm(false);
       } else { const d = await res.json(); alert(d.error || "作成に失敗しました"); }
     } catch { alert("作成に失敗しました"); }
     finally { setSaving(false); }
@@ -57,11 +59,13 @@ export default function CategoriesPage() {
   const startEdit = (cat: Category) => {
     setEditingId(cat.id);
     setEditName(cat.name);
+    setEditShowInMenu(cat.showInMenu);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditName("");
+    setEditShowInMenu(false);
   };
 
   const handleUpdate = async () => {
@@ -72,7 +76,7 @@ export default function CategoriesPage() {
       const res = await fetch(`/api/categories/${editingId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editName.trim() }),
+        body: JSON.stringify({ name: editName.trim(), showInMenu: editShowInMenu }),
       });
       if (res.ok) {
         const updated = await res.json();
@@ -112,10 +116,18 @@ export default function CategoriesPage() {
                   onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
               </div>
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={newShowInMenu} onChange={(e) => setNewShowInMenu(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-400" />
+                  <span className="text-sm text-slate-700">メニューに追加</span>
+                  <span className="text-[11px] text-slate-400">（ページ上部にカテゴリタブとして表示）</span>
+                </label>
+              </div>
               <div className="flex gap-2">
                 <button onClick={handleCreate} disabled={saving}
                   className="bg-black hover:bg-black/80 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">追加</button>
-                <button onClick={() => { setShowForm(false); setName(""); }}
+                <button onClick={() => { setShowForm(false); setName(""); setNewShowInMenu(false); }}
                   className="border border-slate-200 px-4 py-2 rounded-lg text-sm text-slate-600">キャンセル</button>
               </div>
             </div>
@@ -144,6 +156,14 @@ export default function CategoriesPage() {
                         onKeyDown={(e) => { if (e.key === "Enter") handleUpdate(); }}
                         className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
                     </div>
+                    <div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={editShowInMenu} onChange={(e) => setEditShowInMenu(e.target.checked)}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-400" />
+                        <span className="text-sm text-slate-700">メニューに追加</span>
+                        <span className="text-[11px] text-slate-400">（ページ上部にカテゴリタブとして表示）</span>
+                      </label>
+                    </div>
                     <div className="flex gap-2">
                       <button onClick={handleUpdate} disabled={editSaving}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50">
@@ -159,6 +179,9 @@ export default function CategoriesPage() {
                         <span className="text-slate-500 text-xs font-bold">#</span>
                       </span>
                       <p className="font-medium text-slate-900 truncate">{c.name}</p>
+                      {c.showInMenu && (
+                        <span className="inline-block bg-green-50 text-green-600 text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0">メニュー表示</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
                       <button onClick={() => startEdit(c)} className="p-2 text-slate-400 hover:text-blue-600 rounded-lg transition-colors" title="編集">
