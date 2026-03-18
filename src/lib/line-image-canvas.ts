@@ -47,6 +47,10 @@ export type LineImageStyles = {
   btnEmoji: string;
   btnShadowColor: string;
   btnWidthAuto: boolean; // trueの場合、本文テキストの横幅に合わせる
+  // アイキャッチ
+  eyecatchShow: boolean;
+  eyecatchHeight: number;
+  eyecatchMarginBottom: number;
   // 背景
   bgColor: string;
   // パディング
@@ -90,6 +94,9 @@ export const DEFAULT_STYLES: LineImageStyles = {
   btnEmoji: "",
   btnShadowColor: "rgba(0,0,0,0.15)",
   btnWidthAuto: true,
+  eyecatchShow: true,
+  eyecatchHeight: 400,
+  eyecatchMarginBottom: 40,
   bgColor: "#ffffff",
   paddingX: 60,
   paddingTop: 60,
@@ -226,6 +233,7 @@ export async function generateLineImage(
     body: string;
     writerName: string;
     avatarDataUrl: string;
+    eyecatchDataUrl?: string;
   },
   styles: LineImageStyles,
 ): Promise<string> {
@@ -266,6 +274,35 @@ export async function generateLineImage(
   const titleLH = styles.titleFontSize * styles.titleLineHeight;
   const titleH = wrapText(ctx, data.title || "タイトル未入力", styles.paddingX, curY, contentWidth, titleLH, styles.titleAlign);
   curY += titleH + 40;
+
+  // アイキャッチ画像
+  if (styles.eyecatchShow && data.eyecatchDataUrl) {
+    const eyecatchImg = await loadImage(data.eyecatchDataUrl);
+    if (eyecatchImg) {
+      const ecH = styles.eyecatchHeight;
+      const ecW = contentWidth;
+      // アスペクト比を維持してカバーフィット
+      const imgAspect = eyecatchImg.width / eyecatchImg.height;
+      const boxAspect = ecW / ecH;
+      let sx = 0, sy = 0, sw = eyecatchImg.width, sh = eyecatchImg.height;
+      if (imgAspect > boxAspect) {
+        // 画像の方が横長 → 左右をクロップ
+        sw = eyecatchImg.height * boxAspect;
+        sx = (eyecatchImg.width - sw) / 2;
+      } else {
+        // 画像の方が縦長 → 上下をクロップ
+        sh = eyecatchImg.width / boxAspect;
+        sy = (eyecatchImg.height - sh) / 2;
+      }
+      // 角丸クリップ
+      ctx.save();
+      roundRect(ctx, styles.paddingX, curY, ecW, ecH, 16);
+      ctx.clip();
+      ctx.drawImage(eyecatchImg, sx, sy, sw, sh, styles.paddingX, curY, ecW, ecH);
+      ctx.restore();
+      curY += ecH + styles.eyecatchMarginBottom;
+    }
+  }
 
   // From テキスト
   if (data.writerName) {

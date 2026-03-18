@@ -21,6 +21,7 @@ type LineImageGeneratorProps = {
   content: string;
   writerName: string;
   writerAvatarUrl: string | null;
+  eyecatchUrl: string | null;
   showForGen: boolean;
   showForVip: boolean;
   showForVC: boolean;
@@ -133,6 +134,7 @@ export default function LineImageGenerator({
   content,
   writerName,
   writerAvatarUrl,
+  eyecatchUrl,
   showForGen,
   showForVip,
   showForVC,
@@ -152,6 +154,8 @@ export default function LineImageGenerator({
 
   // アバターのDataURLキャッシュ
   const [avatarDataUrl, setAvatarDataUrl] = useState<string>("");
+  // アイキャッチのDataURLキャッシュ
+  const [eyecatchDataUrl, setEyecatchDataUrl] = useState<string>("");
 
   // 画像化の状態
   const [generating, setGenerating] = useState(false);
@@ -226,6 +230,15 @@ export default function LineImageGenerator({
     }
   }, [writerAvatarUrl]);
 
+  // アイキャッチ画像をDataURLに事前変換
+  useEffect(() => {
+    if (eyecatchUrl) {
+      toDataUrl(eyecatchUrl).then(setEyecatchDataUrl);
+    } else {
+      setEyecatchDataUrl("");
+    }
+  }, [eyecatchUrl]);
+
   // activeVariant が enabledVariants に含まれない場合
   useEffect(() => {
     if (enabledVariants.length > 0 && !enabledVariants.includes(activeVariant)) {
@@ -247,6 +260,7 @@ export default function LineImageGenerator({
           body: editBody,
           writerName: editWriter,
           avatarDataUrl,
+          eyecatchDataUrl,
         }, styles);
         setPreviewUrl(url);
       } catch (e) {
@@ -255,7 +269,7 @@ export default function LineImageGenerator({
       setPreviewLoading(false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [isOpen, activeVariant, editTitle, editBody, editWriter, avatarDataUrl, styles, enabledVariants, generatedImages]);
+  }, [isOpen, activeVariant, editTitle, editBody, editWriter, avatarDataUrl, eyecatchDataUrl, styles, enabledVariants, generatedImages]);
 
   /** 全媒体の画像を一括生成（Canvas API） */
   const handleGenerateAll = useCallback(async () => {
@@ -272,6 +286,7 @@ export default function LineImageGenerator({
           body: editBody,
           writerName: editWriter,
           avatarDataUrl,
+          eyecatchDataUrl,
         }, styles);
         results[v] = dataUrl;
       } catch (err) {
@@ -286,7 +301,7 @@ export default function LineImageGenerator({
     if (failCount > 0) {
       alert(`${failCount}件の画像生成に失敗しました。`);
     }
-  }, [enabledVariants, editTitle, editBody, editWriter, avatarDataUrl, styles]);
+  }, [enabledVariants, editTitle, editBody, editWriter, avatarDataUrl, eyecatchDataUrl, styles]);
 
   /** ダウンロード */
   const handleDownload = (v: Variant) => {
@@ -533,9 +548,30 @@ export default function LineImageGenerator({
                         <ColorInput label="色" value={styles.fromColor} onChange={(v) => updateStyle("fromColor", v)} />
                       </fieldset>
 
-                      {/* アバター */}
+                      {/* アイキャッチ画像 */}
                       <fieldset className="space-y-2 border border-slate-100 rounded-lg p-3">
-                        <legend className="text-[11px] font-semibold text-slate-500 px-1">アバター</legend>
+                        <legend className="text-[11px] font-semibold text-slate-500 px-1">アイキャッチ画像</legend>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-slate-500 w-20 shrink-0">表示</span>
+                          <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                            <input type="checkbox" checked={styles.eyecatchShow} onChange={(e) => updateStyle("eyecatchShow", e.target.checked)} />
+                            表示する
+                          </label>
+                          {!eyecatchDataUrl && styles.eyecatchShow && (
+                            <span className="text-[10px] text-amber-500">※ アイキャッチ未設定</span>
+                          )}
+                        </div>
+                        {styles.eyecatchShow && (
+                          <>
+                            <NumInput label="高さ" value={styles.eyecatchHeight} onChange={(v) => updateStyle("eyecatchHeight", v)} min={100} max={800} />
+                            <NumInput label="下マージン" value={styles.eyecatchMarginBottom} onChange={(v) => updateStyle("eyecatchMarginBottom", v)} min={0} max={200} />
+                          </>
+                        )}
+                      </fieldset>
+
+                      {/* 執筆者画像（アバター） */}
+                      <fieldset className="space-y-2 border border-slate-100 rounded-lg p-3">
+                        <legend className="text-[11px] font-semibold text-slate-500 px-1">執筆者画像</legend>
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] text-slate-500 w-20 shrink-0">表示</span>
                           <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">

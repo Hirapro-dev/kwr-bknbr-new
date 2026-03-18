@@ -654,6 +654,7 @@ export default function NewPost() {
           content={mode === "visual" && editorRef.current ? editorRef.current.innerHTML : content}
           writerName={writers.find((w) => String(w.id) === writerId)?.name || ""}
           writerAvatarUrl={writers.find((w) => String(w.id) === writerId)?.avatarUrl || null}
+          eyecatchUrl={eyecatch || null}
           showForGen={showForGen}
           showForVip={showForVip}
           showForVC={showForVC}
