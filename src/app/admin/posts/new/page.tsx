@@ -526,21 +526,21 @@ export default function NewPost() {
           </div>
           <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
             {uploadProgress && <span className="text-[10px] md:text-xs text-blue-600 animate-pulse mr-1">{uploadProgress}</span>}
-            <button onClick={() => setShowSchedule(!showSchedule)} className={`p-1.5 md:p-2 rounded-lg transition-colors ${showSchedule ? "text-amber-600 bg-amber-50" : "text-slate-400 hover:text-amber-600"}`} title="公開日時を指定（未来なら予約）"><FiClock size={14} /></button>
+            {/* 公開日時：トグル + インライン入力 */}
+            <div className="flex items-center gap-0.5">
+              <button onClick={() => setShowSchedule(!showSchedule)} className={`p-1.5 md:p-2 rounded-lg transition-colors ${showSchedule || scheduledAt ? "text-amber-600 bg-amber-50" : "text-slate-400 hover:text-amber-600"}`} title="公開日時を指定（未来なら予約）"><FiClock size={14} /></button>
+              {showSchedule && (
+                <div className="flex items-center gap-1">
+                  <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)}
+                    className="text-[10px] md:text-xs border border-amber-300 rounded-lg px-1.5 py-1 focus:outline-none focus:border-amber-500 w-[140px] md:w-[160px]" />
+                  {scheduledAt && <button onClick={() => { setScheduledAt(""); setShowSchedule(false); }} className="text-[10px] text-amber-600 hover:text-amber-800 whitespace-nowrap">✕</button>}
+                </div>
+              )}
+            </div>
             <button onClick={() => handleSave(false)} disabled={saving || uploading} className="px-2 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 flex items-center gap-1"><FiSave size={12} /> <span className="hidden sm:inline">下書き</span><span className="sm:hidden">保存</span></button>
             <button onClick={() => handleSave(true)} disabled={saving || uploading} className="px-2 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs bg-black hover:bg-black/80 text-white rounded-lg disabled:opacity-50 flex items-center gap-1"><FiEye size={12} /> 公開</button>
           </div>
         </div>
-        {showSchedule && (
-          <div className="bg-amber-50 border-t border-amber-200 px-4 py-2.5 flex flex-wrap items-center gap-3">
-            <FiClock size={14} className="text-amber-600" />
-            <span className="text-xs text-amber-700 font-medium">公開日時:</span>
-            <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)}
-              className="text-xs border border-amber-300 rounded-lg px-2 py-1 focus:outline-none focus:border-amber-500" />
-            {scheduledAt && <button onClick={() => { setScheduledAt(""); setShowSchedule(false); }} className="text-xs text-amber-600 hover:text-amber-800">クリア</button>}
-            <span className="text-[11px] text-amber-700/80">未指定または過去＝今すぐ公開、未来の日時＝自動で公開予約になります</span>
-          </div>
-        )}
       </header>
 
       <EditorToolbar mode={mode} uploading={uploading} customEditors={customEditors}
@@ -558,7 +558,7 @@ export default function NewPost() {
         onInsertCustomHtml={insertHtml} onInsertList={insertList} />
 
       {/* モバイル: ヘッダー48px + ツールバー約44px = 92px + 余白、デスクトップ: 56px + ツールバー約68px = 124px */}
-      <main className={`max-w-4xl mx-auto px-3 md:px-4 py-4 md:py-8 ${showSchedule ? "pt-[140px] md:pt-[160px]" : "pt-[104px] md:pt-[124px]"}`}>
+      <main className="max-w-4xl mx-auto px-3 md:px-4 py-4 md:py-8 pt-[104px] md:pt-[124px]">
         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="記事タイトルを入力..."
           className="w-full text-xl md:text-2xl lg:text-3xl font-black border-none outline-none bg-transparent mb-4 md:mb-6 placeholder:text-slate-300" />
 
