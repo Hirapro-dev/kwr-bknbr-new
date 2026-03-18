@@ -177,16 +177,6 @@ export default async function VcMemberPage({
             </div>
           )}
 
-          <div className="lg:hidden pt-6 pb-4 border-b border-black/10">
-            <form action="/vc" method="get" className="relative max-w-2xl">
-              <input type="hidden" name="page" value="1" />
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" aria-hidden="true">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              </span>
-              <input type="search" name="q" defaultValue={q} placeholder="どんな記事をお探しですか?" className="w-full pl-10 pr-2 py-1.5 bg-black/5 border border-black/10 rounded-lg text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/20" aria-label="記事を検索" />
-              <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-sm font-medium text-black/60 hover:text-black">検索</button>
-            </form>
-          </div>
           <div className="lg:flex lg:gap-10">
             <div className="flex-1 min-w-0">
               {showPickup && (
@@ -240,6 +230,17 @@ export default async function VcMemberPage({
 
               {/* スマホ向けバナー・おすすめ記事セクション */}
               <div className="lg:hidden">
+                {/* スマホ向け検索ボックス */}
+                <div className="pt-6 pb-4 border-t border-black/10">
+                  <form action="/vc" method="get" className="relative max-w-2xl">
+                    <input type="hidden" name="page" value="1" />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" aria-hidden="true">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    </span>
+                    <input type="search" name="q" defaultValue={q} placeholder="どんな記事をお探しですか?" className="w-full pl-10 pr-2 py-1.5 bg-black/5 border border-black/10 rounded-lg text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/20" aria-label="記事を検索" />
+                    <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-sm font-medium text-black/60 hover:text-black">検索</button>
+                  </form>
+                </div>
                 {banners.length > 0 && (
                   <section className="pt-6 pb-6 border-t border-black/10">
                     <ul className="space-y-3">
