@@ -3,9 +3,19 @@
 import { useState, useRef, useEffect } from "react";
 import {
   FiEye, FiCode, FiBold, FiItalic, FiList, FiLink, FiImage, FiType,
-  FiAlignLeft, FiYoutube, FiMessageSquare, FiBookOpen, FiMousePointer,
+  FiAlignLeft, FiYoutube, FiMessageSquare, FiBookOpen,
   FiChevronDown, FiStar, FiMoreHorizontal,
 } from "react-icons/fi";
+
+/** ボタン挿入用アイコン（角丸四角形の中に「BTN」テキスト） */
+function ButtonIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="4" width="14" height="8" rx="2" />
+      <line x1="5" y1="8" x2="11" y2="8" />
+    </svg>
+  );
+}
 
 type EditorMode = "visual" | "code";
 
@@ -90,6 +100,41 @@ const BUTTON_COLORS = [
   { label: "パープル", bg: "#7c3aed", gradient: "linear-gradient(to right, #805ad5, #9f7aea, #b794f4)", cls: "btn-p" },
 ];
 
+/** ボタン色選択ポップアップ（ドロップダウンなし、直接カラーパレットを表示） */
+function ButtonColorPopup({ onSelect, dark = false }: { onSelect: (color: string) => void; dark?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen(!open)} className={`flex items-center gap-1 px-2 py-1.5 rounded-lg transition-colors text-xs ${dark ? "text-slate-300 hover:text-white hover:bg-slate-600" : "text-slate-500 hover:text-blue-600 hover:bg-blue-50"}`} title="ボタン">
+        <ButtonIcon size={14} /><FiChevronDown size={12} />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 p-2 min-w-[180px]">
+          <div className="grid grid-cols-3 gap-1.5">
+            {BUTTON_COLORS.map((c) => (
+              <button
+                key={c.label}
+                onClick={() => { onSelect(JSON.stringify({ bg: c.bg, gradient: c.gradient, cls: c.cls })); setOpen(false); }}
+                className="flex flex-col items-center gap-1 p-1.5 rounded hover:bg-slate-50 transition-colors"
+                title={c.label}
+              >
+                <span className="w-full h-5 rounded" style={{ background: c.gradient || c.bg }} />
+                <span className="text-[10px] text-slate-500">{c.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TB = "p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors";
 
 export default function EditorToolbar({
@@ -144,13 +189,7 @@ export default function EditorToolbar({
                     </DropdownItem>
                   ))}
                 </Dropdown>
-                <Dropdown label="ボタン" icon={<FiMousePointer size={14} />} dark>
-                  {BUTTON_COLORS.map((c) => (
-                    <DropdownItem key={c.label} onClick={() => onInsertButton(JSON.stringify({ bg: c.bg, gradient: c.gradient, cls: c.cls }))}>
-                      <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm" style={{ background: c.gradient || c.bg }} />{c.label}</span>
-                    </DropdownItem>
-                  ))}
-                </Dropdown>
+                <ButtonColorPopup onSelect={onInsertButton} dark />
               </>
             ) : (
               <>
@@ -195,13 +234,7 @@ export default function EditorToolbar({
                     </DropdownItem>
                   ))}
                 </Dropdown>
-                <Dropdown label="ボタン" icon={<FiMousePointer size={14} />}>
-                  {BUTTON_COLORS.map((c) => (
-                    <DropdownItem key={c.label} onClick={() => onInsertButton(JSON.stringify({ bg: c.bg, gradient: c.gradient, cls: c.cls }))}>
-                      <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm" style={{ background: c.gradient || c.bg }} />{c.label}</span>
-                    </DropdownItem>
-                  ))}
-                </Dropdown>
+                <ButtonColorPopup onSelect={onInsertButton} />
                 {customEditors.length > 0 && customEditors.map((ce) => (
                   <button key={ce.id} onClick={() => onInsertCustomHtml(ce.html)} className={TB} title={ce.name}>
                     <span className="text-sm">{ce.icon || "⚡"}</span>
@@ -254,16 +287,7 @@ export default function EditorToolbar({
                 </DropdownItem>
               ))}
             </Dropdown>
-            <Dropdown label="ボタン" icon={<FiMousePointer size={14} />} dark>
-              {BUTTON_COLORS.map((c) => (
-                <DropdownItem key={c.label} onClick={() => onInsertButton(JSON.stringify({ bg: c.bg, gradient: c.gradient, cls: c.cls }))}>
-                  <span className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-sm" style={{ background: c.gradient || c.bg }} />
-                    {c.label}
-                  </span>
-                </DropdownItem>
-              ))}
-            </Dropdown>
+            <ButtonColorPopup onSelect={onInsertButton} dark />
             {customEditors.length > 0 && (
               <>
                 <div className="w-px h-5 bg-slate-300 mx-1" />
@@ -346,17 +370,8 @@ export default function EditorToolbar({
               ))}
             </Dropdown>
 
-            {/* ボタン（色選択付き） */}
-            <Dropdown label="ボタン" icon={<FiMousePointer size={14} />}>
-              {BUTTON_COLORS.map((c) => (
-                <DropdownItem key={c.label} onClick={() => onInsertButton(JSON.stringify({ bg: c.bg, gradient: c.gradient, cls: c.cls }))}>
-                  <span className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-sm" style={{ background: c.gradient || c.bg }} />
-                    {c.label}
-                  </span>
-                </DropdownItem>
-              ))}
-            </Dropdown>
+            {/* ボタン（色選択ポップアップ） */}
+            <ButtonColorPopup onSelect={onInsertButton} />
 
             {/* スマホでここ改行（スマホ表示時のみ改行される位置を挿入） */}
             <button onClick={() => onInsertCustomHtml('<br class="sp-only">')} className={TB} title="スマホでここ改行（スマホ表示時のみこの位置で改行）">
