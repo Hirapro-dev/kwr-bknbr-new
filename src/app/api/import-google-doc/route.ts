@@ -155,15 +155,54 @@ export async function POST(request: NextRequest) {
     const contentElements: string[] = [];
 
     // body.content または tabs[0].documentTab.body.content（API のバージョンに依存）
-    const dataAny = data as { body?: { content?: unknown[] }; tabs?: { documentTab?: { body?: { content?: unknown[] } } }[] };
+    const dataAny = data as {
+      body?: { content?: unknown[] };
+      tabs?: { documentTab?: { body?: { content?: unknown[] }; lists?: Record<string, unknown> } }[];
+      lists?: Record<string, unknown>;
+    };
     const bodyContent = dataAny.body?.content ?? dataAny.tabs?.[0]?.documentTab?.body?.content ?? [];
     const elements = Array.isArray(bodyContent) ? bodyContent : [];
 
+    // リスト定義を取得（リストIDごとにglyphType等を持つ）
+    const listsMap = (dataAny.lists ?? dataAny.tabs?.[0]?.documentTab?.lists ?? {}) as Record<string, {
+      listProperties?: { nestingLevels?: { glyphType?: string; glyphSymbol?: string }[] };
+    }>;
+
+    // リストIDからリスト種別（ordered/unordered）を判定
+    function getListType(listId: string): "ordered" | "unordered" {
+      const listDef = listsMap[listId];
+      if (!listDef?.listProperties?.nestingLevels) return "unordered";
+      const level0 = listDef.listProperties.nestingLevels[0];
+      if (!level0) return "unordered";
+      // glyphTypeがある場合は番号リスト（DECIMAL, ALPHA_UPPERCASE等）
+      const gt = level0.glyphType;
+      if (gt && gt !== "GLYPH_TYPE_UNSPECIFIED") return "ordered";
+      return "unordered";
+    }
+
+    // リスト状態を追跡
+    let currentListId: string | null = null;
+    let currentListTag: string | null = null; // "ul" or "ol"
+    const listItems: string[] = [];
+
+    // 溜まったリストアイテムをフラッシュして contentElements に追加
+    function flushList() {
+      if (currentListTag && listItems.length > 0) {
+        contentElements.push(`<${currentListTag}>\n${listItems.join("\n")}\n</${currentListTag}>`);
+      }
+      listItems.length = 0;
+      currentListId = null;
+      currentListTag = null;
+    }
+
     for (const el of elements) {
       const se = el as {
-        paragraph?: { elements?: unknown[]; paragraphStyle?: { namedStyleType?: string } };
+        paragraph?: { elements?: unknown[]; paragraphStyle?: { namedStyleType?: string }; bullet?: { listId?: string; nestingLevel?: number } };
         table?: { tableRows?: { tableCells?: { content?: unknown[] }[] }[] };
       };
+
+      // テーブルやリスト以外の要素の前にリストをフラッシュ
+      if (se.table) { flushList(); }
 
       // テーブル処理
       if (se.table) {
@@ -272,6 +311,39 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // 内部HTMLを構築する共通処理
+      const buildInner = () => {
+        const innerParts = parts.map(p => {
+          if (p.type === "link") {
+            return `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.text)}</a>`;
+          }
+          return p.html;
+        });
+        return innerParts.join("");
+      };
+
+      // リスト（箇条書き / 番号リスト）の処理
+      const bullet = para.bullet;
+      if (bullet?.listId) {
+        const listId = bullet.listId;
+        const listType = getListType(listId);
+        const tag = listType === "ordered" ? "ol" : "ul";
+
+        // 別のリストに変わった or リスト種別が変わった場合はフラッシュ
+        if (currentListId && (currentListId !== listId || currentListTag !== tag)) {
+          flushList();
+        }
+        currentListId = listId;
+        currentListTag = tag;
+
+        const inner = buildInner();
+        if (inner) listItems.push(`<li>${inner}</li>`);
+        continue;
+      }
+
+      // リスト以外の段落に来たらリストをフラッシュ
+      if (currentListId) flushList();
+
       // パラグラフ全体がリンクのみで構成されている場合はボタン化
       const nonEmptyParts = parts.filter(p => p.type === "link" || (p.type === "html" && p.html.trim()));
       const allLinks = nonEmptyParts.length > 0 && nonEmptyParts.every(p => p.type === "link");
@@ -284,17 +356,13 @@ export async function POST(request: NextRequest) {
           }
         }
       } else {
-        // 通常の段落（リンクが混在する場合はテキストリンクとして出力）
-        const innerParts = parts.map(p => {
-          if (p.type === "link") {
-            return `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.text)}</a>`;
-          }
-          return p.html;
-        });
-        const inner = innerParts.join("");
+        const inner = buildInner();
         if (inner) contentElements.push(`<${blockTag}>${inner}</${blockTag}>`);
       }
     }
+
+    // ループ終了後、残りのリストをフラッシュ
+    flushList();
 
     const content = contentElements.join("\n");
     // 本文中の「タイトル」スタイルから抽出したテキストを優先、なければファイル名
