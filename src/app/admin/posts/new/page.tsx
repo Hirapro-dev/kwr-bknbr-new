@@ -635,7 +635,7 @@ export default function NewPost() {
           />
           {eyecatch ? (
             <div className="relative rounded-lg overflow-hidden border border-slate-200">
-              <div className="aspect-[16/9] relative"><Image src={eyecatch} alt="アイキャッチ" fill className="object-cover" sizes="800px" /></div>
+              <Image src={eyecatch} alt="アイキャッチ" width={1200} height={675} className="object-cover w-full h-auto" sizes="800px" />
               <button onClick={() => setEyecatch("")} className="absolute top-3 right-3 bg-white/90 hover:bg-white text-red-500 px-3 py-1 rounded-lg text-xs font-medium shadow-sm">削除</button>
             </div>
           ) : (
