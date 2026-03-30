@@ -8,8 +8,8 @@ const nextConfig: NextConfig = {
         hostname: "**",
       },
     ],
-    // モダンな画像フォーマットに対応（表示速度向上）
-    formats: ["image/avif", "image/webp"],
+    // WebPフォーマットに対応（AVIFは古いiOSで非対応のため除外）
+    formats: ["image/webp"],
   },
 };
 

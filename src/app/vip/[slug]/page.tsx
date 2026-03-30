@@ -124,12 +124,13 @@ export default async function VipPostPage({
 
         <article className="article-detail">
           {post.eyecatch && (
-            <div className="aspect-[16/9] relative rounded-sm overflow-hidden mb-8">
+            <div className="rounded-sm overflow-hidden mb-8">
               <Image
                 src={post.eyecatch}
                 alt={post.title}
-                fill
-                className="object-cover"
+                width={1200}
+                height={675}
+                className="object-cover w-full h-auto"
                 priority
                 sizes="(max-width: 768px) 100vw, 720px"
               />
