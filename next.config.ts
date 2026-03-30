@@ -8,8 +8,6 @@ const nextConfig: NextConfig = {
         hostname: "**",
       },
     ],
-    // WebPフォーマットに対応（AVIFは古いiOSで非対応のため除外）
-    formats: ["image/webp"],
   },
 };
 
