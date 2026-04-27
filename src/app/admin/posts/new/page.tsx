@@ -47,6 +47,7 @@ export default function NewPost() {
   const [showForGen, setShowForGen] = useState(true);
   const [showForVip, setShowForVip] = useState(true);
   const [showForVC, setShowForVC] = useState(false);
+  const [showDate, setShowDate] = useState(true);
   const [googleDocDialogOpen, setGoogleDocDialogOpen] = useState(false);
   const [googleDocUrl, setGoogleDocUrl] = useState("");
   const [googleDocLoading, setGoogleDocLoading] = useState(false);
@@ -518,7 +519,7 @@ export default function NewPost() {
       const finalContent = [...topHtmlParts, editorContent, ...bottomHtmlParts].join("\n");
       const res = await fetch("/api/posts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content: finalContent, eyecatch: eyecatch || null, published: shouldPublish ?? published, isPickup, showForGen, showForVip, showForVC, scheduledAt: scheduledAt ? new Date(scheduledAt + ":00+09:00").toISOString() : null, writerId: writerId || null, categoryIds: selectedCategoryIds }),
+        body: JSON.stringify({ title, content: finalContent, eyecatch: eyecatch || null, published: shouldPublish ?? published, isPickup, showForGen, showForVip, showForVC, showDate, scheduledAt: scheduledAt ? new Date(scheduledAt + ":00+09:00").toISOString() : null, writerId: writerId || null, categoryIds: selectedCategoryIds }),
       });
       if (res.ok) router.push("/admin/dashboard");
       else { const d = await res.json(); alert(d.error || "保存に失敗"); }
@@ -605,6 +606,13 @@ export default function NewPost() {
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={isPickup} onChange={(e) => setIsPickup(e.target.checked)} className="rounded border-slate-300 text-amber-500 focus:ring-amber-400" />
             <span className="text-xs md:text-sm font-medium text-slate-700">人気記事<span className="hidden md:inline">に設定する（トップの PickUp に表示）</span></span>
+          </label>
+        </div>
+
+        <div className="mb-4 md:mb-6">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={showDate} onChange={(e) => setShowDate(e.target.checked)} className="rounded border-slate-300 text-blue-500 focus:ring-blue-400" />
+            <span className="text-xs md:text-sm font-medium text-slate-700">日付を表示する<span className="hidden md:inline">（一覧・記事ページに公開日を表示）</span></span>
           </label>
         </div>
 

@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
     showForGen: true,
     showForVip: true,
     showForVC: true,
+    showDate: true,
     views: true,
     scheduledAt: true,
     createdAt: true,
@@ -131,7 +132,7 @@ export async function GET(request: NextRequest) {
             : getEffectiveDate(a) - getEffectiveDate(b)
         )
       : rawPostsFallback;
-    const postsWithPickup = sortedFallback.map((p) => ({ ...p, isPickup: false, showForGen: true, showForVip: true, showForVC: false }));
+    const postsWithPickup = sortedFallback.map((p) => ({ ...p, isPickup: false, showForGen: true, showForVip: true, showForVC: false, showDate: true }));
     return NextResponse.json({
       posts: postsWithPickup,
       total,
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { title, content, excerpt, eyecatch, published, scheduledAt, writerId, isPickup, showForGen, showForVip, showForVC, categoryIds } = body;
+    const { title, content, excerpt, eyecatch, published, scheduledAt, writerId, isPickup, showForGen, showForVip, showForVC, showDate, categoryIds } = body;
 
     const slug = generateSlug();
     const isScheduled = scheduledAt && new Date(scheduledAt) > new Date();
@@ -164,6 +165,7 @@ export async function POST(request: NextRequest) {
         showForGen: showForGen !== false,
         showForVip: showForVip !== false,
         showForVC: showForVC !== false,
+        showDate: showDate !== false,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
         writerId: writerId ? parseInt(writerId) : null,
         categories: Array.isArray(categoryIds) && categoryIds.length > 0

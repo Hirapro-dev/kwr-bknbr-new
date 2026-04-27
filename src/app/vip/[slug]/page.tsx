@@ -29,15 +29,16 @@ type Post = {
   published: boolean;
   createdAt: Date;
   showForVip?: boolean;
+  showDate?: boolean;
   writer?: Writer | null;
 };
 
-async function getPost(slug: string): Promise<(Post & { showForVip?: boolean }) | null> {
+async function getPost(slug: string): Promise<(Post & { showForVip?: boolean; showDate?: boolean }) | null> {
   try {
     return await prisma.post.findUnique({
       where: { slug },
       include: { writer: true },
-    }) as (Post & { showForVip?: boolean }) | null;
+    }) as (Post & { showForVip?: boolean; showDate?: boolean }) | null;
   } catch {
     const row = await prisma.post.findUnique({
       where: { slug },
@@ -47,7 +48,7 @@ async function getPost(slug: string): Promise<(Post & { showForVip?: boolean }) 
         writer: true, showForVip: true,
       },
     });
-    return row as (Post & { showForVip?: boolean }) | null;
+    return row as (Post & { showForVip?: boolean; showDate?: boolean }) | null;
   }
 }
 
@@ -88,7 +89,7 @@ async function getRecommendedPosts(slug: string): Promise<Omit<Post, "content">[
     take: 15,
     select: {
       id: true, title: true, slug: true, excerpt: true,
-      eyecatch: true, published: true, createdAt: true,
+      eyecatch: true, published: true, createdAt: true, showDate: true,
     },
   });
 
@@ -140,10 +141,12 @@ export default async function VipPostPage({
             {post.title}
           </h1>
 
-          <div className="flex items-center gap-2 text-sm text-black/40 mb-4">
-            <FiCalendar size={14} />
-            <time>{formatDate(post.createdAt)}</time>
-          </div>
+          {post.showDate !== false && (
+            <div className="flex items-center gap-2 text-sm text-black/40 mb-4">
+              <FiCalendar size={14} />
+              <time>{formatDate(post.createdAt)}</time>
+            </div>
+          )}
 
           <hr className="border-0 border-t border-solid my-6" style={{ borderColor: "#eee" }} />
 

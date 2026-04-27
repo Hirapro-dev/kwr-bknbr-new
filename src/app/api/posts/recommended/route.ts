@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
         excerpt: true,
         eyecatch: true,
         createdAt: true,
+        showDate: true,
       },
     });
     return NextResponse.json({ posts });
@@ -71,6 +72,7 @@ export async function GET(request: NextRequest) {
       eyecatch: true,
       createdAt: true,
       content: true,
+      showDate: true,
     },
   });
 

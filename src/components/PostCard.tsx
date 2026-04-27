@@ -10,6 +10,7 @@ type PostCardProps = {
     eyecatch?: string | null;
     createdAt: string | Date;
     scheduledAt?: string | Date | null;
+    showDate?: boolean;
     writer?: { name: string; avatarUrl: string | null } | null;
   };
   variant?: "list" | "grid" | "pickup";
@@ -50,7 +51,9 @@ export default function PostCard({ post, variant = "grid", basePath }: PostCardP
                 </div>
               ) : null}
               {post.writer && <span className="text-sm text-white/80">{post.writer.name}</span>}
-              <time className="text-sm text-white/90">{formatDate(getDisplayDate(post))}</time>
+              {post.showDate !== false && (
+                <time className="text-sm text-white/90">{formatDate(getDisplayDate(post))}</time>
+              )}
             </div>
           </div>
         </article>
@@ -82,9 +85,11 @@ export default function PostCard({ post, variant = "grid", basePath }: PostCardP
             <h2 className="text-xl font-bold text-black leading-snug line-clamp-2 group-hover:opacity-60 transition-opacity">
               {post.title}
             </h2>
-            <time className="mt-3 text-sm text-black/40 block">
-              {formatDate(getDisplayDate(post))}
-            </time>
+            {post.showDate !== false && (
+              <time className="mt-3 text-sm text-black/40 block">
+                {formatDate(getDisplayDate(post))}
+              </time>
+            )}
             {post.writer && (
               <div className="flex items-center gap-2 mt-2">
                 {post.writer.avatarUrl ? (
@@ -126,9 +131,11 @@ export default function PostCard({ post, variant = "grid", basePath }: PostCardP
           <h2 className="text-sm font-bold text-black leading-snug line-clamp-3 group-hover:opacity-60 transition-opacity">
             {post.title}
           </h2>
-          <time className="mt-2 text-xs text-black/40 block">
-            {formatDate(getDisplayDate(post))}
-          </time>
+          {post.showDate !== false && (
+            <time className="mt-2 text-xs text-black/40 block">
+              {formatDate(getDisplayDate(post))}
+            </time>
+          )}
           {post.writer && (
             <div className="flex items-center gap-1.5 mt-1.5">
               {post.writer.avatarUrl ? (

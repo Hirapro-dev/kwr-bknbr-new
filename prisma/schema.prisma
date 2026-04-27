@@ -20,6 +20,7 @@ model Post {
   showForGen     Boolean          @default(true)
   showForVip     Boolean          @default(true)
   showForVC      Boolean          @default(false)
+  showDate       Boolean          @default(true)
   scheduledAt    DateTime?
   views          Int              @default(0)
   writerId       Int?

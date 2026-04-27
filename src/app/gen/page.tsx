@@ -18,6 +18,7 @@ type Post = {
   views: number;
   createdAt: Date;
   scheduledAt: Date | null;
+  showDate?: boolean;
   writer?: { name: string; avatarUrl: string | null } | null;
 };
 
@@ -26,7 +27,7 @@ type MenuCategory = { id: number; name: string; slug: string };
 
 const postSelect = {
   id: true, title: true, slug: true, excerpt: true,
-  eyecatch: true, published: true, views: true, createdAt: true, scheduledAt: true,
+  eyecatch: true, published: true, views: true, createdAt: true, scheduledAt: true, showDate: true,
   writer: { select: { name: true, avatarUrl: true } },
 } as const;
 
@@ -97,7 +98,7 @@ async function getRecommended(): Promise<Post[]> {
       where: { published: true, showForGen: true } as Prisma.PostWhereInput,
       orderBy: { views: "desc" },
       take: 5,
-      select: { id: true, title: true, slug: true, excerpt: true, eyecatch: true, published: true, views: true, createdAt: true, scheduledAt: true },
+      select: { id: true, title: true, slug: true, excerpt: true, eyecatch: true, published: true, views: true, createdAt: true, scheduledAt: true, showDate: true },
     });
   } catch {
     return [];
@@ -277,7 +278,9 @@ export default async function GenMemberPage({
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-black leading-snug line-clamp-2 group-hover:opacity-60">{post.title}</p>
-                              <time className="text-xs text-black/40 mt-1 block">{formatDate(getDisplayDate(post))}</time>
+                              {post.showDate !== false && (
+                                <time className="text-xs text-black/40 mt-1 block">{formatDate(getDisplayDate(post))}</time>
+                              )}
                             </div>
                           </Link>
                         </li>
@@ -333,7 +336,9 @@ export default async function GenMemberPage({
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-black leading-snug line-clamp-2 group-hover:opacity-60">{post.title}</p>
-                            <time className="text-xs text-black/40 mt-1 block">{formatDate(getDisplayDate(post))}</time>
+                            {post.showDate !== false && (
+                              <time className="text-xs text-black/40 mt-1 block">{formatDate(getDisplayDate(post))}</time>
+                            )}
                           </div>
                         </Link>
                       </li>
