@@ -12,6 +12,9 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { FiArrowLeft, FiCalendar } from "react-icons/fi";
+import WelHeader from "@/app/wel/_components/WelHeader";
+import WelFooter from "@/app/wel/_components/WelFooter";
+import WelPostCard from "@/app/wel/_components/WelPostCard";
 
 type Writer = {
   id: number;
@@ -29,26 +32,27 @@ type Post = {
   published: boolean;
   createdAt: Date;
   showForVC?: boolean;
+  showForWel?: boolean;
   showDate?: boolean;
   writer?: Writer | null;
 };
 
-async function getPost(slug: string): Promise<(Post & { showForVC?: boolean; showDate?: boolean }) | null> {
+async function getPost(slug: string): Promise<Post | null> {
   try {
-    return await prisma.post.findUnique({
+    return (await prisma.post.findUnique({
       where: { slug },
       include: { writer: true },
-    }) as (Post & { showForVC?: boolean; showDate?: boolean }) | null;
+    })) as Post | null;
   } catch {
     const row = await prisma.post.findUnique({
       where: { slug },
       select: {
         id: true, title: true, slug: true, content: true, excerpt: true,
         eyecatch: true, published: true, createdAt: true, writerId: true,
-        writer: true, showForVC: true,
+        writer: true, showForVC: true, showForWel: true,
       },
     });
-    return row as (Post & { showForVC?: boolean; showDate?: boolean }) | null;
+    return row as Post | null;
   }
 }
 
@@ -115,6 +119,88 @@ export default async function VcPostPage({
 
   const recommendedPosts = await getRecommendedPosts(post.slug);
   const isHtml = post.content.includes("<") && post.content.includes(">");
+
+  // ウェルネス対象記事ならウェルネスデザインで描画（媒体URL・計測ソースはvcを維持）
+  if (post.showForWel === true) {
+    return (
+      <div data-theme="wel" className="min-h-screen flex flex-col">
+        <WelHeader homeHref="/vc" />
+        <ClickTracker postId={post.id} source="vc" />
+
+        <main className="flex-1 mx-auto px-4 sm:px-6 py-4 w-full">
+          <div className="wel-box wel-box--article mx-auto">
+            <article className="article-detail">
+              {post.eyecatch && (
+                <div className="hidden md:block aspect-video relative overflow-hidden mb-8" style={{ border: "1px solid var(--wel-line)" }}>
+                  <Image
+                    src={post.eyecatch}
+                    alt={post.title}
+                    fill
+                    className="object-cover"
+                    priority
+                    sizes="(max-width: 768px) 100vw, 720px"
+                  />
+                </div>
+              )}
+
+              <h1 className="wel-article-title text-2xl md:text-3xl mb-2">
+                {post.title}
+              </h1>
+
+              {post.showDate !== false && (
+                <div className="wel-article-meta flex items-center gap-2 text-sm mb-4">
+                  <FiCalendar size={14} />
+                  <time>{formatDate(post.createdAt)}</time>
+                </div>
+              )}
+
+              <hr className="border-0 border-t border-solid my-6" style={{ borderColor: "var(--wel-line)" }} />
+
+              {post.writer?.avatarUrl && (
+                <div className="mb-8">
+                  <Image
+                    src={post.writer.avatarUrl}
+                    alt={post.writer.name}
+                    width={230}
+                    height={230}
+                    className="object-contain w-[100px] md:w-[150px] h-auto"
+                  />
+                </div>
+              )}
+
+              <div className="prose max-w-none" data-article-content>
+                {isHtml ? (
+                  <div dangerouslySetInnerHTML={{ __html: post.content }} />
+                ) : (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                    {post.content}
+                  </ReactMarkdown>
+                )}
+              </div>
+            </article>
+
+            {recommendedPosts.length > 0 && (
+              <section className="mt-16 pt-10 wel-border-line border-t">
+                <h2 className="wel-section-title text-xl mb-6">あなたにおすすめの記事</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                  {recommendedPosts.map((p) => (
+                    <WelPostCard key={p.id} post={{ ...p, slug: p.slug }} variant="grid" />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <Link href="/vc" className="wel-back-link mt-10">
+              <FiArrowLeft size={14} />
+              記事一覧に戻る
+            </Link>
+          </div>
+        </main>
+
+        <WelFooter />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-white">

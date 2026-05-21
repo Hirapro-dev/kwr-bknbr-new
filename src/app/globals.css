@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./wel/wellness.css";
 
 @theme inline {
   --color-primary: #1e40af;
