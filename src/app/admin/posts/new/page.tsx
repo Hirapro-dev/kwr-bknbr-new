@@ -570,8 +570,9 @@ export default function NewPost() {
 
       {/* モバイル: ヘッダー48px + ツールバー約44px = 92px + 余白、デスクトップ: 56px + ツールバー約68px = 124px */}
       <main className="max-w-4xl mx-auto px-3 md:px-4 py-4 md:py-8 pt-[148px] md:pt-[160px]">
-        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="記事タイトルを入力..."
-          className="w-full text-xl md:text-2xl lg:text-3xl font-black border-none outline-none bg-transparent mb-4 md:mb-6 placeholder:text-slate-300" />
+        <textarea value={title} onChange={(e) => setTitle(e.target.value)} placeholder="記事タイトルを入力..." rows={1}
+          onInput={(e) => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }}
+          className="w-full text-xl md:text-2xl lg:text-3xl font-black border-none outline-none bg-transparent mb-4 md:mb-6 placeholder:text-slate-300 resize-none leading-tight overflow-hidden" />
 
         {writers.length > 0 && (
           <div className="mb-6">
