@@ -35,13 +35,14 @@ type Post = {
   showForWel?: boolean;
   showDate?: boolean;
   writer?: Writer | null;
+  categories?: { category: { name: string } }[];
 };
 
 async function getPost(slug: string): Promise<Post | null> {
   try {
     return (await prisma.post.findUnique({
       where: { slug },
-      include: { writer: true },
+      include: { writer: true, categories: { select: { category: { select: { name: true } } } } },
     })) as Post | null;
   } catch {
     const row = await prisma.post.findUnique({
@@ -50,6 +51,7 @@ async function getPost(slug: string): Promise<Post | null> {
         id: true, title: true, slug: true, content: true, excerpt: true,
         eyecatch: true, published: true, createdAt: true, writerId: true,
         writer: true, showForVip: true, showForWel: true,
+        categories: { select: { category: { select: { name: true } } } },
       },
     });
     return row as Post | null;
@@ -119,6 +121,8 @@ export default async function VipPostPage({
 
   const recommendedPosts = await getRecommendedPosts(post.slug);
   const isHtml = post.content.includes("<") && post.content.includes(">");
+  // 瓦版カテゴリの記事はタイトルを小さめに表示
+  const isKawaraban = post.categories?.some((c) => c.category.name === "瓦版") === true;
 
   // ウェルネス対象記事ならウェルネスデザインで描画（媒体URL・計測ソースはvipを維持）
   if (post.showForWel === true) {
@@ -143,7 +147,7 @@ export default async function VipPostPage({
                 </div>
               )}
 
-              <h1 className="wel-article-title text-2xl md:text-3xl mb-2">
+              <h1 className={`wel-article-title ${isKawaraban ? "text-xl md:text-2xl" : "text-2xl md:text-3xl"} mb-2`}>
                 {post.title}
               </h1>
 
@@ -223,7 +227,7 @@ export default async function VipPostPage({
             </div>
           )}
 
-          <h1 className="text-black mb-2 leading-tight">
+          <h1 className={"text-black mb-2 leading-tight" + (isKawaraban ? " article-title--kawaraban" : "")}>
             {post.title}
           </h1>
 

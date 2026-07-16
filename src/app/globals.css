@@ -117,6 +117,15 @@ a.btn.btn-c.btn-c-header--full:hover {
     font-size: 32px;
   }
 }
+/* 瓦版カテゴリの記事タイトル（通常より小さめ） */
+.article-detail > h1.article-title--kawaraban {
+  font-size: 20px;
+}
+@media (min-width: 768px) {
+  .article-detail > h1.article-title--kawaraban {
+    font-size: 26px;
+  }
+}
 .article-detail [data-article-content] {
   font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, "sans-serif";
 }

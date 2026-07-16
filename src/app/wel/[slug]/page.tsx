@@ -31,13 +31,14 @@ type Post = {
   showForWel?: boolean;
   showDate?: boolean;
   writer?: Writer | null;
+  categories?: { category: { name: string } }[];
 };
 
 async function getPost(slug: string): Promise<(Post & { showForWel?: boolean; showDate?: boolean }) | null> {
   try {
     return (await prisma.post.findUnique({
       where: { slug },
-      include: { writer: true },
+      include: { writer: true, categories: { select: { category: { select: { name: true } } } } },
     })) as (Post & { showForWel?: boolean; showDate?: boolean }) | null;
   } catch {
     const row = await prisma.post.findUnique({
@@ -46,6 +47,7 @@ async function getPost(slug: string): Promise<(Post & { showForWel?: boolean; sh
         id: true, title: true, slug: true, content: true, excerpt: true,
         eyecatch: true, published: true, createdAt: true, writerId: true,
         writer: true, showForWel: true,
+        categories: { select: { category: { select: { name: true } } } },
       },
     });
     return row as (Post & { showForWel?: boolean; showDate?: boolean }) | null;
@@ -113,6 +115,8 @@ export default async function WelPostPage({
 
   const recommendedPosts = await getRecommendedPosts(post.slug);
   const isHtml = post.content.includes("<") && post.content.includes(">");
+  // 瓦版カテゴリの記事はタイトルを小さめに表示
+  const isKawaraban = post.categories?.some((c) => c.category.name === "瓦版") === true;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -135,7 +139,7 @@ export default async function WelPostPage({
             </div>
           )}
 
-          <h1 className="wel-article-title text-2xl md:text-3xl mb-2">
+          <h1 className={`wel-article-title ${isKawaraban ? "text-xl md:text-2xl" : "text-2xl md:text-3xl"} mb-2`}>
             {post.title}
           </h1>
 
