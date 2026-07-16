@@ -144,8 +144,8 @@ a.btn.btn-c.btn-c-header--full:hover {
   font-size: 16px;
   font-weight: 400;
   /* スマホ版（基本） */
-  margin: 30px 0;
-  line-height: 1.8rem;
+  margin: 24px 0;
+  line-height: 1.6rem;
   padding: 0;
 }
 /* PC版（768px以上） */
@@ -175,6 +175,16 @@ a.btn.btn-c.btn-c-header--full:hover {
   font-weight: 700;
   margin: 30px 0;
   line-height: 1.8rem;
+}
+/* 瓦版はスマホでも<br>をそのまま表示（メルマガの改行位置を維持） */
+@media (max-width: 768px) {
+  .article-detail--kawaraban [data-article-content] p br:not(.sp-only) {
+    display: inline;
+  }
+}
+/* 瓦版はタイトル下の区切り線を表示しない */
+.article-detail--kawaraban > hr {
+  display: none;
 }
 /* インラインスタイル装飾（太字・下線・色・マーカー等） */
 .prose strong,
