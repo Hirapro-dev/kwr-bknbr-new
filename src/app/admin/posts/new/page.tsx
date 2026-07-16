@@ -52,6 +52,8 @@ export default function NewPost() {
   const [googleDocDialogOpen, setGoogleDocDialogOpen] = useState(false);
   const [googleDocUrl, setGoogleDocUrl] = useState("");
   const [googleDocLoading, setGoogleDocLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const eyecatchInputRef = useRef<HTMLInputElement>(null);
@@ -77,6 +79,27 @@ export default function NewPost() {
   }, [router]);
 
   const syncFromVisual = () => { if (editorRef.current) setContent(editorRef.current.innerHTML); };
+
+  const importFromPdf = async (file: File) => {
+    setPdfLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/import-pdf", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "取り込みに失敗しました");
+      setTitle(data.title ?? "");
+      const html = data.content ?? "";
+      setContent(html);
+      if (mode === "visual" && editorRef.current) {
+        editorRef.current.innerHTML = normalizeHtmlForVisual(html);
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "取り込みに失敗しました");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   const importFromGoogleDoc = async () => {
     const url = googleDocUrl.trim();
@@ -675,10 +698,14 @@ export default function NewPost() {
           showForWel={showForWel}
         />
 
-        <div className="mb-3">
+        <div className="mb-3 flex items-center gap-4">
           <button type="button" onClick={() => setGoogleDocDialogOpen(true)} className="text-sm text-blue-600 hover:text-blue-800 font-medium">
             Google ドキュメントから取り込み
           </button>
+          <button type="button" onClick={() => pdfInputRef.current?.click()} disabled={pdfLoading} className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50">
+            {pdfLoading ? "PDF取り込み中..." : "PDFから取り込み"}
+          </button>
+          <input ref={pdfInputRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importFromPdf(f); e.target.value = ""; }} />
         </div>
         {/* デフォルト挿入: 上部プレビュー */}
         {customEditors.filter((ce) => ce.defaultInsert && ce.defaultPosition === "top").length > 0 && (
