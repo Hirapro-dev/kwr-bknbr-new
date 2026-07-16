@@ -67,21 +67,21 @@ function linkifyUrls(escaped: string): string {
   );
 }
 
-type TextItem = { str: string; transform: number[] };
-type Line = { text: string; y: number; gapBefore: number | null };
+type TextItem = { str: string; transform: number[]; fontName?: string };
+type Line = { text: string; y: number; gapBefore: number | null; fonts: Record<string, number> };
 
 /** 1ページ分のテキストアイテムを行にまとめる（y座標でグループ化、2px以内は同一行） */
 function buildLines(items: TextItem[]): Line[] {
-  const lineMap: { y: number; parts: { x: number; str: string }[] }[] = [];
+  const lineMap: { y: number; parts: { x: number; str: string; fontName?: string }[] }[] = [];
   for (const it of items) {
     if (typeof it.str !== "string") continue;
     const y = it.transform[5];
     const x = it.transform[4];
     const found = lineMap.find((l) => Math.abs(l.y - y) <= 2);
     if (found) {
-      found.parts.push({ x, str: it.str });
+      found.parts.push({ x, str: it.str, fontName: it.fontName });
     } else {
-      lineMap.push({ y, parts: [{ x, str: it.str }] });
+      lineMap.push({ y, parts: [{ x, str: it.str, fontName: it.fontName }] });
     }
   }
   // 上から下（PDFのy座標は下から上なので降順）に並べ、行内はxの昇順で結合
@@ -94,7 +94,13 @@ function buildLines(items: TextItem[]): Line[] {
     const gapBefore = prevY !== null ? prevY - l.y : null;
     prevY = l.y;
     if (text.trim() === "") continue;
-    lines.push({ text, y: l.y, gapBefore });
+    // フォント別の文字数（空白除く）を集計。太字判定に使う
+    const fonts: Record<string, number> = {};
+    for (const p of l.parts) {
+      const chars = p.str.replace(/\s+/g, "").length;
+      if (chars > 0 && p.fontName) fonts[p.fontName] = (fonts[p.fontName] || 0) + chars;
+    }
+    lines.push({ text, y: l.y, gapBefore, fonts });
   }
   return lines;
 }
@@ -109,15 +115,60 @@ function medianGap(lines: Line[]): number {
   return gaps[Math.floor(gaps.length / 2)];
 }
 
-/** 段落（行の配列）をHTMLの<p>に変換。■/◾/【で始まる見出し行は太字にする */
-function paragraphToHtml(paraLines: string[]): string {
-  const inner = paraLines
-    .map((line) => {
-      const escaped = linkifyUrls(escapeHtml(line));
-      return /^[■◾▪【]/.test(line.trim()) ? `<strong>${escaped}</strong>` : escaped;
-    })
-    .join("<br>");
-  return `<p>${inner}</p>`;
+// 段落を構成する1行（テキスト＋太字フラグ）
+type ParaLine = { text: string; bold: boolean };
+
+// 箇条書き行（・で始まる行）の判定
+const BULLET_RE = /^\s*[・･•]/;
+
+/** 1行をHTML化（エスケープ→URLリンク化→太字） */
+function renderLine(line: ParaLine): string {
+  const escaped = linkifyUrls(escapeHtml(line.text));
+  const bold = line.bold || /^[■◾▪【]/.test(line.text.trim());
+  return bold ? `<strong>${escaped}</strong>` : escaped;
+}
+
+/** 段落をHTMLに変換。・が2行以上連続する場合は<ul><li>にする */
+function paragraphToHtml(paraLines: ParaLine[]): string {
+  const blocks: string[] = [];
+  let textBuf: string[] = [];
+  let bulletBuf: ParaLine[] = [];
+
+  const flushText = () => {
+    if (textBuf.length > 0) {
+      blocks.push(`<p>${textBuf.join("<br>")}</p>`);
+      textBuf = [];
+    }
+  };
+  const flushBullets = () => {
+    if (bulletBuf.length >= 2) {
+      // 2行以上連続 → <ul><li>（行頭の・は除去）
+      flushText();
+      const items = bulletBuf
+        .map((l) => {
+          const inner = linkifyUrls(escapeHtml(l.text.replace(/^\s*[・･•]\s*/, "")));
+          return `<li>${l.bold ? `<strong>${inner}</strong>` : inner}</li>`;
+        })
+        .join("");
+      blocks.push(`<ul>${items}</ul>`);
+    } else if (bulletBuf.length === 1) {
+      // 単独の・行は通常テキストのまま
+      textBuf.push(renderLine(bulletBuf[0]));
+    }
+    bulletBuf = [];
+  };
+
+  for (const line of paraLines) {
+    if (BULLET_RE.test(line.text)) {
+      bulletBuf.push(line);
+    } else {
+      flushBullets();
+      textBuf.push(renderLine(line));
+    }
+  }
+  flushBullets();
+  flushText();
+  return blocks.join("\n");
 }
 
 export async function POST(request: NextRequest) {
@@ -148,20 +199,34 @@ export async function POST(request: NextRequest) {
       StandardFontDataFactory: FsStandardFontDataFactory,
     }).promise;
 
-    // 全ページの行を抽出。行間が標準の1.6倍を超えたら段落区切りとみなす
-    const paragraphs: string[][] = [];
-    let title = "";
-    let current: string[] = [];
-
+    // 1パス目: 全ページの行を集め、フォント別の総文字数を集計
+    const pages: { lines: Line[]; threshold: number }[] = [];
+    const fontTotals: Record<string, number> = {};
     for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
       const page = await pdf.getPage(pageNo);
       const tc = await page.getTextContent();
       const lines = buildLines(tc.items as TextItem[]);
       if (lines.length === 0) continue;
-
+      // 行間が標準（中央値）の1.6倍を超えたら段落区切りとみなす
       const median = medianGap(lines);
-      const threshold = median > 0 ? median * 1.6 : Infinity;
+      pages.push({ lines, threshold: median > 0 ? median * 1.6 : Infinity });
+      for (const l of lines) {
+        for (const [f, n] of Object.entries(l.fonts)) fontTotals[f] = (fontTotals[f] || 0) + n;
+      }
+    }
 
+    // 本文の基本フォント＝最も文字数が多いフォント。
+    // 基本フォントを1文字も含まない行は太字（見出し等）とみなす
+    const majorityFont = Object.entries(fontTotals).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+    const isBoldLine = (l: Line) =>
+      Object.keys(l.fonts).length > 0 && !(majorityFont in l.fonts);
+
+    // 2パス目: 段落を構築（ページ境界は常に段落区切り）
+    const paragraphs: ParaLine[][] = [];
+    let title = "";
+    let current: ParaLine[] = [];
+
+    for (const { lines, threshold } of pages) {
       for (const line of lines) {
         const isBreak = line.gapBefore !== null && line.gapBefore > threshold;
         if (isBreak && current.length > 0) {
@@ -173,7 +238,7 @@ export async function POST(request: NextRequest) {
           title = line.text.trim();
           continue;
         }
-        current.push(line.text);
+        current.push({ text: line.text, bold: isBoldLine(line) });
       }
       // ページ境界で段落を閉じる
       if (current.length > 0) {
