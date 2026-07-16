@@ -204,15 +204,15 @@ a.btn.btn-c.btn-c-header--full:hover {
   font-size: 16px;
   font-weight: 400;
   /* スマホ版（基本） */
-  line-height: 1.8rem;
-  margin: 8px 0;
+  line-height: 1.7rem;
+  margin: 0;
   padding: 0;
 }
 /* PC版（768px以上） */
 @media (min-width: 768px) {
   .prose li {
     line-height: 2rem;
-    margin: 10px 0;
+    margin: 2px 0;
   }
 }
 /* 記事詳細ページ：・なしリスト */
