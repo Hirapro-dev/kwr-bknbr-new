@@ -125,7 +125,7 @@ export default async function WelPostPage({
 
       <main className="flex-1 mx-auto px-4 sm:px-6 py-4 w-full">
         <div className="wel-box wel-box--article mx-auto">
-        <article className="article-detail">
+        <article className={"article-detail" + (isKawaraban ? " article-detail--kawaraban" : "")}>
           {post.eyecatch && (
             <div className="hidden md:block aspect-video relative overflow-hidden mb-8" style={{ border: "1px solid var(--wel-line)" }}>
               <Image
@@ -139,7 +139,7 @@ export default async function WelPostPage({
             </div>
           )}
 
-          <h1 className={`wel-article-title ${isKawaraban ? "text-xl md:text-2xl" : "text-2xl md:text-3xl"} mb-2`}>
+          <h1 className="wel-article-title text-2xl md:text-3xl mb-2">
             {post.title}
           </h1>
 

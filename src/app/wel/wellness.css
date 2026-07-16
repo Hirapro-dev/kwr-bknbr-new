@@ -415,3 +415,22 @@
   font-family: "Yu Mincho", serif;
   color: var(--wel-line);
 }
+
+/* ===== 瓦版カテゴリ：メルマガ（テキスト形式）風 =====
+   タイトル・見出しを本文（17px）と同じ文字サイズにし、装飾線も外す */
+[data-theme="wel"] .article-detail--kawaraban .wel-article-title {
+  font-size: 17px;
+  line-height: 2.0;
+}
+[data-theme="wel"] .article-detail--kawaraban [data-article-content] h2 {
+  font-size: 17px !important;
+  margin: 30px 0 18px;
+  padding-left: 0;
+}
+[data-theme="wel"] .article-detail--kawaraban [data-article-content] h2::before {
+  content: none;
+}
+[data-theme="wel"] .article-detail--kawaraban [data-article-content] h3 {
+  font-size: 17px;
+  margin: 30px 0 14px;
+}

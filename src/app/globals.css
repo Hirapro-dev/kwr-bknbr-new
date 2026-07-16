@@ -117,15 +117,6 @@ a.btn.btn-c.btn-c-header--full:hover {
     font-size: 32px;
   }
 }
-/* 瓦版カテゴリの記事タイトル（通常より小さめ） */
-.article-detail > h1.article-title--kawaraban {
-  font-size: 20px;
-}
-@media (min-width: 768px) {
-  .article-detail > h1.article-title--kawaraban {
-    font-size: 26px;
-  }
-}
 .article-detail [data-article-content] {
   font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, "sans-serif";
 }
@@ -163,6 +154,27 @@ a.btn.btn-c.btn-c-header--full:hover {
     margin: 36px 0;
     line-height: 2rem;
   }
+}
+/* ===== 瓦版カテゴリ：メルマガ（テキスト形式）風 =====
+   タイトル・見出しを本文と同じ文字サイズにし、太字だけで区別する */
+.article-detail.article-detail--kawaraban > h1 {
+  font-size: 16px;
+  line-height: 1.8rem;
+}
+.article-detail--kawaraban [data-article-content] h2 {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  margin: 30px 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 1.8rem !important;
+  border-bottom: none !important;
+}
+.article-detail--kawaraban [data-article-content] h3,
+.article-detail--kawaraban [data-article-content] h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 30px 0;
+  line-height: 1.8rem;
 }
 /* インラインスタイル装飾（太字・下線・色・マーカー等） */
 .prose strong,
@@ -421,7 +433,7 @@ a.btn.btn-c.btn-c-header--full:hover {
   min-width: 0 !important;
   box-sizing: border-box;
   border-radius: 5px !important;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18), 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.1);
   color: #fff !important;
   text-align: center !important;
   transition: transform 0.2s, opacity 0.2s;
