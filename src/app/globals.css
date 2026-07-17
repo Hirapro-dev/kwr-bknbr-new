@@ -151,8 +151,8 @@ a.btn.btn-c.btn-c-header--full:hover {
 /* PC版（768px以上） */
 @media (min-width: 768px) {
   .article-detail [data-article-content] p {
-    margin: 36px 0;
-    line-height: 2rem;
+    margin: 24px 0;
+    line-height: 1.7rem;
   }
 }
 /* ===== 瓦版カテゴリ：メルマガ（テキスト形式）風 =====
@@ -211,8 +211,8 @@ a.btn.btn-c.btn-c-header--full:hover {
 /* PC版（768px以上） */
 @media (min-width: 768px) {
   .prose li {
-    line-height: 2rem;
-    margin: 2px 0;
+    line-height: 1.7rem;
+    margin: 1px 0;
   }
 }
 /* 記事詳細ページ：・なしリスト */
