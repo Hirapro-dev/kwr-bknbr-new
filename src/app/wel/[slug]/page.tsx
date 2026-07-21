@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import ClickTracker from "@/components/ClickTracker";
+import PopupLinkHandler from "@/components/PopupLinkHandler";
 import { formatDate } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
@@ -122,6 +123,7 @@ export default async function WelPostPage({
     <div className="min-h-screen flex flex-col">
       <WelHeader />
       <ClickTracker postId={post.id} source="wel" />
+      <PopupLinkHandler />
 
       <main className="flex-1 mx-auto px-4 sm:px-6 py-4 w-full">
         <div className="wel-box wel-box--article mx-auto">

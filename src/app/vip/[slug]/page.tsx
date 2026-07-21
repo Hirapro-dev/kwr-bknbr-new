@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PostCard from "@/components/PostCard";
 import ClickTracker from "@/components/ClickTracker";
+import PopupLinkHandler from "@/components/PopupLinkHandler";
 import { formatDate } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
@@ -130,6 +131,7 @@ export default async function VipPostPage({
       <div data-theme="wel" className="min-h-screen flex flex-col">
         <WelHeader homeHref="/vip" />
         <ClickTracker postId={post.id} source="vip" />
+        <PopupLinkHandler />
 
         <main className="flex-1 mx-auto px-4 sm:px-6 py-4 w-full">
           <div className="wel-box wel-box--article mx-auto">
@@ -210,6 +212,7 @@ export default async function VipPostPage({
     <div className="min-h-screen flex flex-col bg-white">
       <Header variant="vip" homeHref="/vip" />
       <ClickTracker postId={post.id} source="vip" />
+      <PopupLinkHandler />
 
       <main className="flex-1 max-w-[640px] mx-auto px-4 sm:px-6 py-10 w-full">
 

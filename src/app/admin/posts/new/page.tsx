@@ -11,6 +11,8 @@ import ThumbnailGenerator from "@/components/ThumbnailGenerator";
 import LineImageGenerator from "@/components/LineImageGenerator";
 
 type EditorMode = "visual" | "code";
+/** ボタンの開き方: tab=別タブ / window=別ウィンドウ / modal=ポップアップ表示 */
+type ButtonOpenMode = "tab" | "window" | "modal";
 type CustomEditor = { id: number; name: string; icon: string; html: string; defaultInsert?: boolean; defaultPosition?: string };
 type Writer = { id: number; name: string; avatarUrl: string | null };
 type CategoryItem = { id: number; name: string; slug: string };
@@ -37,7 +39,7 @@ export default function NewPost() {
   const [buttonDialogOpen, setButtonDialogOpen] = useState(false);
   const [buttonText, setButtonText] = useState("詳しくはこちら");
   const [buttonUrl, setButtonUrl] = useState("");
-  const [buttonNewTab, setButtonNewTab] = useState(true);
+  const [buttonOpenMode, setButtonOpenMode] = useState<ButtonOpenMode>("tab");
   const [buttonColor, setButtonColor] = useState("#1e40af");
   const [writers, setWriters] = useState<Writer[]>([]);
   const [writerId, setWriterId] = useState("");
@@ -435,7 +437,7 @@ export default function NewPost() {
     editingButtonAnchorRef.current = null;
     setButtonText("詳しくはこちら");
     setButtonUrl("");
-    setButtonNewTab(true);
+    setButtonOpenMode("tab");
     setButtonColor(colorData);
     if (mode === "visual" && editorRef.current) {
       const anchor = getSelectedButtonAnchor();
@@ -443,7 +445,8 @@ export default function NewPost() {
         editingButtonAnchorRef.current = anchor;
         setButtonText(anchor.textContent?.replace(/\s*\|\s*/g, "|").trim() || "詳しくはこちら");
         setButtonUrl(anchor.getAttribute("href") || "");
-        setButtonNewTab(anchor.target === "_blank");
+        const popup = anchor.getAttribute("data-popup");
+        setButtonOpenMode(popup === "window" ? "window" : popup === "modal" ? "modal" : "tab");
         const cls = anchor.className;
         const styleBg = anchor.style.background || "";
         if (cls.includes("btn-c")) setButtonColor(JSON.stringify({ cls: "btn-c" }));
@@ -467,7 +470,10 @@ export default function NewPost() {
       .split("||")
       .map((seg) => seg.split("|").map(esc).join('<br class="sp-only">'))
       .join("<br>");
-    const targetAttr = buttonNewTab ? ' target="_blank" rel="noopener noreferrer"' : "";
+    // 別ウィンドウ・ポップアップも target="_blank" を併記し、JS無効時やブロック時は別タブへ自動フォールバックさせる
+    const isPopup = buttonOpenMode === "window" || buttonOpenMode === "modal";
+    const targetAttr = ' target="_blank" rel="noopener noreferrer"';
+    const popupAttr = isPopup ? ` data-popup="${buttonOpenMode}"` : "";
     let btnClass = "btn";
     try {
       const parsed = JSON.parse(buttonColor);
@@ -477,8 +483,10 @@ export default function NewPost() {
       const anchor = editingButtonAnchorRef.current;
       if (anchor && editorRef.current.contains(anchor)) {
         anchor.href = u;
-        anchor.target = buttonNewTab ? "_blank" : "";
-        anchor.rel = buttonNewTab ? "noopener noreferrer" : "";
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        if (isPopup) anchor.setAttribute("data-popup", buttonOpenMode);
+        else anchor.removeAttribute("data-popup");
         anchor.className = btnClass;
         anchor.innerHTML = inner;
         editingButtonAnchorRef.current = null;
@@ -487,7 +495,7 @@ export default function NewPost() {
       }
       editingButtonAnchorRef.current = null;
     }
-    const html = `<div class="btn-wrap"><a href="${u}"${targetAttr} class="${btnClass}">${inner}</a></div>`;
+    const html = `<div class="btn-wrap"><a href="${u}"${targetAttr}${popupAttr} class="${btnClass}">${inner}</a></div>`;
     if (mode === "visual" && editorRef.current) {
       const editor = editorRef.current;
       const wrapper = document.createElement("div");
@@ -804,10 +812,27 @@ export default function NewPost() {
                   })}
                 </div>
               </div>
-              <label className="flex items-center gap-2 mb-4 cursor-pointer">
-                <input type="checkbox" checked={buttonNewTab} onChange={(e) => setButtonNewTab(e.target.checked)} className="rounded border-slate-300" />
-                <span className="text-sm text-slate-700">別タブで開く</span>
-              </label>
+              <div className="mb-4">
+                <label className="block text-xs text-slate-500 mb-1.5">リンクの開き方</label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([
+                    { mode: "tab", label: "別タブで開く", desc: "新しいタブに移動" },
+                    { mode: "window", label: "別ウィンドウ", desc: "小さい別窓で開く" },
+                    { mode: "modal", label: "ポップアップ表示", desc: "記事上に重ねて表示" },
+                  ] as { mode: ButtonOpenMode; label: string; desc: string }[]).map((o) => (
+                    <button key={o.mode} type="button" onClick={() => setButtonOpenMode(o.mode)}
+                      className={`text-left px-2.5 py-1.5 rounded-lg border transition-colors ${buttonOpenMode === o.mode ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                      <span className="block text-xs font-medium">{o.label}</span>
+                      <span className="block text-[10px] text-slate-400">{o.desc}</span>
+                    </button>
+                  ))}
+                </div>
+                {buttonOpenMode === "modal" && (
+                  <p className="text-[10px] text-amber-600 mt-1.5">
+                    ※ 埋め込みを許可していない外部サイトは表示できません。その場合は「別ウィンドウ」をご利用ください。
+                  </p>
+                )}
+              </div>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => { setButtonDialogOpen(false); editingButtonAnchorRef.current = null; }} className="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">キャンセル</button>
                 <button type="button" onClick={submitButton} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">{editingButtonAnchorRef.current ? "更新" : "挿入"}</button>
