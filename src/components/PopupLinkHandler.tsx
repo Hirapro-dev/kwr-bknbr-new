@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FiExternalLink, FiX } from "react-icons/fi";
+import { FiX } from "react-icons/fi";
 
 /** 別ウィンドウのサイズ上限（画面が小さい場合は画面サイズに収める） */
 const WINDOW_WIDTH = 1000;
@@ -90,16 +90,6 @@ export default function PopupLinkHandler() {
     <div className="popup-modal-overlay" onClick={closeModal} role="dialog" aria-modal="true">
       <div className="popup-modal" onClick={(e) => e.stopPropagation()}>
         <div className="popup-modal-bar">
-          <a
-            href={modalUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="popup-modal-open"
-            title="新しいタブで開く"
-          >
-            <FiExternalLink size={14} />
-            <span>新しいタブで開く</span>
-          </a>
           <button type="button" onClick={closeModal} className="popup-modal-close" aria-label="閉じる">
             <FiX size={18} />
           </button>
@@ -114,10 +104,6 @@ export default function PopupLinkHandler() {
             referrerPolicy="no-referrer-when-downgrade"
           />
         </div>
-        {/* 埋め込みを拒否するサイト（X-Frame-Options等）では白紙になるため、逃げ道を常時表示 */}
-        <p className="popup-modal-note">
-          表示されない場合は「新しいタブで開く」をご利用ください。
-        </p>
       </div>
     </div>
   );
