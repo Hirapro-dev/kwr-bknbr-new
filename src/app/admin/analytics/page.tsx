@@ -3,20 +3,39 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { FiArrowLeft, FiEye, FiMousePointer, FiBarChart2, FiChevronDown, FiExternalLink } from "react-icons/fi";
+import { FiArrowLeft, FiEye, FiMousePointer, FiBarChart2, FiChevronDown, FiExternalLink, FiArrowUp, FiArrowDown, FiClock } from "react-icons/fi";
 
-type PostSummary = { id: number; title: string; views: number; published: boolean; createdAt: string; scheduledAt: string | null; showForGen?: boolean; showForVip?: boolean; showForVC?: boolean; writer?: { id: number; name: string } | null };
+type PostSummary = { id: number; title: string; views: number; clicks: number; published: boolean; createdAt: string; scheduledAt: string | null; showForGen?: boolean; showForVip?: boolean; showForVC?: boolean; writer?: { id: number; name: string } | null };
 type Writer = { id: number; name: string };
+type ClickLogItem = { url: string; label: string | null; source: string | null; createdAt: string };
 type PostDetail = {
   post: { id: number; title: string; views: number };
   viewsByDate: Record<string, number>;
   clicksByDate: Record<string, number>;
-  clicksByUrl: Record<string, { count: number; label: string | null }>;
+  clicksByUrl: Record<string, { count: number; label: string | null; firstClickedAt: string; lastClickedAt: string }>;
+  clickLog: ClickLogItem[];
+  clickLogTruncated: boolean;
   totalClicks: number;
+  uniqueUrlCount: number;
 };
 
 type Period = "all" | "monthly" | "daily";
 type MediaTab = "gen" | "vip" | "vc";
+
+/** 記事一覧の並べ替えキー */
+type SortKey = "views" | "clicks" | "date";
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "views", label: "閲覧数" },
+  { key: "clicks", label: "クリック数" },
+  { key: "date", label: "配信日" },
+];
+
+/** 日時を「2026/07/21 14:05」形式で表示 */
+const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleString("ja-JP", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo",
+  });
 
 // 媒体タブの定義
 const MEDIA_TABS: { key: MediaTab; label: string; color: string; bgColor: string }[] = [
@@ -44,6 +63,8 @@ function AnalyticsContent() {
   const [writers, setWriters] = useState<Writer[]>([]);
   const [filterWriterId, setFilterWriterId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<MediaTab>("gen");
+  const [sortKey, setSortKey] = useState<SortKey>("views");
+  const [sortDesc, setSortDesc] = useState(true);
 
   // 当日/7日間の統計
   const [todayViews, setTodayViews] = useState(0);
@@ -58,7 +79,9 @@ function AnalyticsContent() {
       const res = await fetch(`/api/analytics?media=${media}`);
       if (res.ok) {
         const data = await res.json();
-        setPosts(data.posts);
+        // 記事別クリック数をマージ（APIは記事一覧と別集計で返す）
+        const clicksByPost: Record<number, number> = data.clicksByPost || {};
+        setPosts((data.posts as PostSummary[]).map((p) => ({ ...p, clicks: clicksByPost[p.id] ?? 0 })));
         setTotalViews(data.totalViews);
         setTotalClicks(data.totalClicks);
         setTodayViews(data.todayViews || 0);
@@ -108,9 +131,28 @@ function AnalyticsContent() {
     loadDetail();
   }, [selectedPost, period, viewSource]);
 
+  // 配信日（予約投稿があればその日時、なければ作成日）をソート用の数値に変換
+  const deliveredAt = (p: PostSummary) => new Date(p.scheduledAt || p.createdAt).getTime();
+
   const filteredPosts = posts
-    .filter((p) => (filterWriterId ? p.writer?.id === filterWriterId : true));
-  const maxViews = Math.max(...filteredPosts.map((p) => p.views), 1);
+    .filter((p) => (filterWriterId ? p.writer?.id === filterWriterId : true))
+    .slice()
+    .sort((a, b) => {
+      const diff =
+        sortKey === "views" ? a.views - b.views
+          : sortKey === "clicks" ? a.clicks - b.clicks
+            : deliveredAt(a) - deliveredAt(b);
+      return sortDesc ? -diff : diff;
+    });
+
+  // 棒グラフは並べ替えの基準になっている指標を表示（配信日順のときは閲覧数）
+  const barKey: "views" | "clicks" = sortKey === "clicks" ? "clicks" : "views";
+  const maxBarValue = Math.max(...filteredPosts.map((p) => p[barKey]), 1);
+
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) setSortDesc((d) => !d);
+    else { setSortKey(key); setSortDesc(true); }
+  };
 
   const memberLabel = (p: PostSummary) => {
     const g = p.showForGen !== false;
@@ -206,7 +248,26 @@ function AnalyticsContent() {
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-6 min-w-0">
             {/* 記事一覧（閲覧数ランキング） */}
             <div className="min-w-0">
-              <h2 className="font-bold text-sm text-slate-900 mb-3">記事別アクセス数</h2>
+              <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                <h2 className="font-bold text-sm text-slate-900">記事別アクセス数</h2>
+                <span className="text-[11px] text-slate-400">{filteredPosts.length}件</span>
+              </div>
+
+              {/* 並べ替え（同じ項目をもう一度押すと昇順・降順が反転） */}
+              <div className="flex items-center gap-1 mb-3 bg-white rounded-lg border border-slate-200 p-1">
+                <span className="text-[11px] text-slate-400 px-1.5 shrink-0">並べ替え</span>
+                {SORT_OPTIONS.map((o) => (
+                  <button key={o.key} onClick={() => toggleSort(o.key)}
+                    title={`${o.label}で並べ替え${sortKey === o.key ? (sortDesc ? "（降順）" : "（昇順）") : ""}`}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                      sortKey === o.key ? "bg-blue-50 text-blue-700 shadow-sm" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                    }`}>
+                    {o.label}
+                    {sortKey === o.key && (sortDesc ? <FiArrowDown size={11} /> : <FiArrowUp size={11} />)}
+                  </button>
+                ))}
+              </div>
+
               <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 overflow-hidden">
                 {filteredPosts.length === 0 ? (
                   <p className="text-sm text-slate-400 p-4">記事がありません</p>
@@ -217,15 +278,25 @@ function AnalyticsContent() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-900 truncate">{post.title}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <p className="text-[11px] text-slate-500">公開日: {formatPublishedAt(post)}</p>
+                        <p className="text-[11px] text-slate-500">配信日: {formatPublishedAt(post)}</p>
                         {post.writer && <span className="text-[11px] text-slate-400">| {post.writer.name}</span>}
                         <span className="text-[11px] text-slate-500">| 会員: {memberLabel(post)}</span>
                       </div>
                       <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1.5">
-                        <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${(post.views / maxViews) * 100}%` }} />
+                        <div className={`h-1.5 rounded-full transition-all ${barKey === "clicks" ? "bg-orange-500" : "bg-blue-500"}`}
+                          style={{ width: `${(post[barKey] / maxBarValue) * 100}%` }} />
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-slate-700 shrink-0">{post.views.toLocaleString()}</span>
+                    <div className="shrink-0 text-right">
+                      <div className="flex items-center justify-end gap-1 text-slate-700">
+                        <FiEye size={11} className="text-slate-300" />
+                        <span className="text-sm font-bold">{post.views.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-end gap-1 text-orange-600 mt-0.5">
+                        <FiMousePointer size={10} className="text-orange-300" />
+                        <span className="text-xs font-bold">{post.clicks.toLocaleString()}</span>
+                      </div>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -332,28 +403,70 @@ function AnalyticsContent() {
 
                   {/* リンク別クリック数 */}
                   <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 overflow-hidden">
-                    <div className="flex items-center justify-between mb-3 min-w-0">
-                      <div className="flex items-center gap-2 text-slate-400 shrink-0"><FiMousePointer size={14} /><span className="text-xs font-semibold">リンク別クリック数</span></div>
-                      <span className="text-xs text-slate-400 shrink-0">合計 {detail.totalClicks}</span>
+                    <div className="flex items-center gap-2 text-slate-400 mb-3">
+                      <FiMousePointer size={14} /><span className="text-xs font-semibold">リンク別クリック数</span>
                     </div>
+
+                    {/* 集計サマリー */}
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                      <div className="bg-slate-50 rounded-lg px-3 py-2">
+                        <p className="text-[10px] font-semibold text-slate-400">クリック総数</p>
+                        <p className="text-lg font-black text-slate-900 leading-tight">{detail.totalClicks.toLocaleString()}</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-lg px-3 py-2">
+                        <p className="text-[10px] font-semibold text-slate-400">ユニークリンク数</p>
+                        <p className="text-lg font-black text-slate-900 leading-tight">{detail.uniqueUrlCount.toLocaleString()}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">URLパラメータを除いて集計</p>
+                      </div>
+                    </div>
+
                     {Object.keys(detail.clicksByUrl).length === 0 ? (
                       <p className="text-xs text-slate-300 py-4 text-center">クリックデータがありません</p>
                     ) : (
-                      <div className="space-y-2 max-h-60 overflow-y-auto overflow-x-hidden">
+                      <div className="space-y-2 max-h-72 overflow-y-auto overflow-x-hidden">
                         {Object.entries(detail.clicksByUrl)
                           .sort(([, a], [, b]) => b.count - a.count)
                           .map(([url, data]) => (
-                            <div key={url} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0 min-w-0">
-                              <span className="text-sm font-bold text-blue-600 w-8 shrink-0 text-right">{data.count}</span>
+                            <div key={url} className="flex items-start gap-3 py-2 border-b border-slate-50 last:border-0 min-w-0">
+                              <span className="text-sm font-bold text-blue-600 w-8 shrink-0 text-right pt-0.5">{data.count}</span>
                               <div className="flex-1 min-w-0 overflow-hidden">
                                 <p className="text-xs font-medium text-slate-700 truncate">{data.label || url}</p>
                                 <p className="text-[10px] text-slate-400 break-all">
                                   <FiExternalLink size={9} className="inline shrink-0 mr-0.5" />
                                   {url}
                                 </p>
+                                <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1 flex-wrap">
+                                  <FiClock size={9} className="shrink-0" />
+                                  <span>最終 {formatDateTime(data.lastClickedAt)}</span>
+                                  {data.count > 1 && <span className="text-slate-300">/ 初回 {formatDateTime(data.firstClickedAt)}</span>}
+                                </p>
                               </div>
                             </div>
                           ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* クリック履歴（日時つき） */}
+                  <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 overflow-hidden">
+                    <div className="flex items-center justify-between mb-3 min-w-0 gap-2">
+                      <div className="flex items-center gap-2 text-slate-400 shrink-0"><FiClock size={14} /><span className="text-xs font-semibold">クリック履歴</span></div>
+                      {detail.clickLogTruncated && <span className="text-[10px] text-slate-400 shrink-0">直近200件を表示</span>}
+                    </div>
+                    {!detail.clickLog || detail.clickLog.length === 0 ? (
+                      <p className="text-xs text-slate-300 py-4 text-center">クリックデータがありません</p>
+                    ) : (
+                      <div className="max-h-72 overflow-y-auto overflow-x-hidden divide-y divide-slate-50">
+                        {detail.clickLog.map((c, i) => (
+                          <div key={`${c.createdAt}-${i}`} className="flex items-start gap-3 py-2 min-w-0">
+                            <span className="text-[10px] text-slate-400 font-mono shrink-0 pt-0.5 tabular-nums">{formatDateTime(c.createdAt)}</span>
+                            <div className="flex-1 min-w-0 overflow-hidden">
+                              <p className="text-xs text-slate-700 truncate">{c.label || c.url}</p>
+                              <p className="text-[10px] text-slate-400 break-all">{c.url}</p>
+                            </div>
+                            {c.source && <span className="text-[10px] text-slate-400 bg-slate-50 rounded px-1.5 py-0.5 shrink-0">{c.source}</span>}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>

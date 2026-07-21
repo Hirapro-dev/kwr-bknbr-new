@@ -125,13 +125,48 @@ export async function GET(request: NextRequest) {
         Object.assign(clicksByDate, clicksByDateRaw);
       }
 
-      const clicksByUrl: Record<string, { count: number; label: string | null }> = {};
+      // URL別に集計（初回・最終クリック日時も保持）
+      // 配信ごとに付与されるトラッキングパラメータ（?_stp=... 等）で集計が分散するため、
+      // クエリ文字列とハッシュを除いたURLをキーにまとめる
+      const normalizeUrl = (raw: string) => {
+        try {
+          const u = new URL(raw);
+          return u.origin + u.pathname;
+        } catch {
+          return raw.split(/[?#]/)[0];
+        }
+      };
+      const clicksByUrl: Record<string, { count: number; label: string | null; firstClickedAt: string; lastClickedAt: string }> = {};
       clicks.forEach((c) => {
-        if (!clicksByUrl[c.url]) clicksByUrl[c.url] = { count: 0, label: c.label };
-        clicksByUrl[c.url].count++;
+        const at = c.createdAt.toISOString();
+        const key = normalizeUrl(c.url);
+        const entry = clicksByUrl[key];
+        if (!entry) {
+          clicksByUrl[key] = { count: 1, label: c.label, firstClickedAt: at, lastClickedAt: at };
+          return;
+        }
+        entry.count++;
+        if (at > entry.lastClickedAt) entry.lastClickedAt = at;
+        if (at < entry.firstClickedAt) entry.firstClickedAt = at;
+        if (!entry.label && c.label) entry.label = c.label;
       });
 
-      return NextResponse.json({ post, viewsByDate, clicksByDate, clicksByUrl, totalClicks: clicks.length });
+      // クリック履歴（新しい順。表示件数を抑えるため直近200件まで）
+      const CLICK_LOG_LIMIT = 200;
+      const clickLog = clicks.slice(0, CLICK_LOG_LIMIT).map((c) => ({
+        url: c.url,
+        label: c.label,
+        source: c.source,
+        createdAt: c.createdAt.toISOString(),
+      }));
+
+      return NextResponse.json({
+        post, viewsByDate, clicksByDate, clicksByUrl,
+        clickLog,
+        clickLogTruncated: clicks.length > CLICK_LOG_LIMIT,
+        totalClicks: clicks.length,
+        uniqueUrlCount: Object.keys(clicksByUrl).length,
+      });
     }
 
     // 媒体フィルター
@@ -166,8 +201,20 @@ export async function GET(request: NextRequest) {
       ? await prisma.click.count({ where: { postId: { in: postIds }, ...sourceFilter } })
       : 0;
 
+    // 記事ごとのクリック数を集計（クリック数での並べ替えに使用）
+    // 記事別閲覧数（post.views）と粒度を揃えるため、媒体で絞り込まない合計値
+    const clicksByPost: Record<number, number> = {};
+    if (postIds.length > 0) {
+      const groupedClicks = await prisma.click.groupBy({
+        by: ["postId"],
+        where: { postId: { in: postIds } },
+        _count: { id: true },
+      });
+      groupedClicks.forEach((g) => { clicksByPost[g.postId] = g._count.id; });
+    }
+
     // 記事ごとの媒体別閲覧数を集計
-    let viewsByPost: Record<number, number> = {};
+    const viewsByPost: Record<number, number> = {};
     if (postIds.length > 0 && media !== "all") {
       const grouped = await prisma.pageView.groupBy({
         by: ["postId"],
@@ -201,7 +248,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       posts, totalViews, totalClicks,
       todayViews, todayClicks, last7DaysViews, last7DaysClicks,
-      viewsByPost,
+      viewsByPost, clicksByPost,
     });
   } catch {
     return NextResponse.json({ error: "解析データの取得に失敗しました" }, { status: 500 });
