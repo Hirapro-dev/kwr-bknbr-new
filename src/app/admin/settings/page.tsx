@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiArrowLeft, FiSave, FiEye, FiEyeOff, FiShield } from "react-icons/fi";
+import { FiSave, FiEye, FiEyeOff, FiShield } from "react-icons/fi";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -101,19 +101,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div>
       {/* ヘッダー */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
-          <button onClick={() => router.push("/admin/dashboard")} className="p-2 text-slate-400 hover:text-blue-600 transition-colors">
-            <FiArrowLeft size={18} />
-          </button>
-          <FiShield size={18} className="text-slate-500" />
-          <span className="text-sm font-semibold text-slate-700">設定</span>
-        </div>
-      </header>
-
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
         <form onSubmit={handleSubmit}>
           {/* アカウント情報 */}
           <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">

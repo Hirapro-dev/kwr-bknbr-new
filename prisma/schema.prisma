@@ -79,10 +79,12 @@ model Click {
   url       String
   label     String?
   source    String?  // "gen" | "vip" | "vc" クリック元の媒体
+  channel   String?  // "mail" | "line" 配信チャネル（null = 直接・不明）
   createdAt DateTime @default(now())
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId, createdAt])
+  @@index([postId, channel])
   @@map("clicks")
 }
 
@@ -90,10 +92,12 @@ model PageView {
   id        Int      @id @default(autoincrement())
   postId    Int
   source    String?  // "gen" | "vip" | "vc" 閲覧元（一般会員/正会員/仮想通貨長者）
+  channel   String?  // "mail" | "line" 配信チャネル（null = 直接・不明）
   createdAt DateTime @default(now())
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId, createdAt])
+  @@index([postId, channel])
   @@map("page_views")
 }
 

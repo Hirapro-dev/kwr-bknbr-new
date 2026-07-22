@@ -9,6 +9,7 @@ import { prettyPrintHtml, normalizeHtmlForVisual } from "@/lib/editor-html";
 import EditorToolbar from "@/components/EditorToolbar";
 import ThumbnailGenerator from "@/components/ThumbnailGenerator";
 import LineImageGenerator from "@/components/LineImageGenerator";
+import DeliveryUrlPanel from "@/components/DeliveryUrlPanel";
 
 type EditorMode = "visual" | "code";
 /** ボタンの開き方: tab=別タブ / window=別ウィンドウ / modal=ポップアップ表示 */
@@ -21,6 +22,7 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
   const { id } = use(params);
   const router = useRouter();
   const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState(""); // 配信用URLの生成に使う
   const [content, setContent] = useState("");
   const [eyecatch, setEyecatch] = useState("");
   const [published, setPublished] = useState(false);
@@ -79,7 +81,7 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
       ]);
       if (res.ok) {
         const post = await res.json();
-        setTitle(post.title); setContent(post.content); setEyecatch(post.eyecatch || ""); setPublished(post.published); setIsPickup(post.isPickup ?? false);
+        setTitle(post.title); setSlug(post.slug || ""); setContent(post.content); setEyecatch(post.eyecatch || ""); setPublished(post.published); setIsPickup(post.isPickup ?? false);
         setShowForGen(post.showForGen !== false);
         setShowForVip(post.showForVip !== false);
         setShowForVC(post.showForVC === true);
@@ -700,6 +702,14 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
             </label>
           </div>
         </div>
+
+        <DeliveryUrlPanel
+          slug={slug}
+          showForGen={showForGen}
+          showForVip={showForVip}
+          showForVC={showForVC}
+          showForWel={showForWel}
+        />
 
         <div className="mb-4 md:mb-6">
           <label className="block text-xs font-semibold text-slate-500 mb-2">アイキャッチ画像</label>

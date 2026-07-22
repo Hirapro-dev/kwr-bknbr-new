@@ -3,8 +3,13 @@ import { cookies } from "next/headers";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
 
-export function signToken(payload: { id: number; username: string }) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+/**
+ * ログイントークンを発行する。
+ * remember=true（ログイン情報を保存）のときは Cookie の maxAge と同じ90日にする。
+ * ここを揃えないと、Cookieは残っているのにトークンだけ失効して突然ログアウトになる。
+ */
+export function signToken(payload: { id: number; username: string }, remember = false) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: remember ? "90d" : "7d" });
 }
 
 export function verifyToken(token: string) {

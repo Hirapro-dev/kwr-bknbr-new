@@ -2,9 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
-import { FiArrowLeft, FiPlus, FiTrash2, FiUploadCloud, FiEdit2, FiSave, FiX } from "react-icons/fi";
+import { FiPlus, FiTrash2, FiUploadCloud, FiEdit2, FiSave, FiX } from "react-icons/fi";
 import { compressAndUpload } from "@/lib/upload";
 
 type Writer = { id: number; name: string; avatarUrl: string | null; order: number };
@@ -176,20 +175,13 @@ export default function WritersPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/admin/dashboard" className="p-2 text-slate-400 hover:text-blue-600 rounded-lg"><FiArrowLeft size={18} /></Link>
-            <span className="font-bold text-sm text-slate-900">執筆者管理</span>
-          </div>
-          <button onClick={() => setShowForm(!showForm)} className="bg-black hover:bg-black/80 text-white px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+    <div>
+      <main className="max-w-4xl mx-auto px-4 py-6">
+        <div className="flex justify-end mb-4">
+          <button onClick={() => setShowForm(!showForm)} className="bg-black hover:bg-black/80 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5">
             <FiPlus size={14} /> 新規追加
           </button>
         </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 py-8">
         <p className="text-sm text-slate-500 mb-6">
           執筆者を登録すると、記事投稿時に執筆者を選択できます。記事ページに執筆者名とアバター画像が表示されます。
         </p>

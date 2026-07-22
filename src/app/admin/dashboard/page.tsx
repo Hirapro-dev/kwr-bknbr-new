@@ -4,9 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  FiPlus, FiEdit2, FiTrash2, FiEye, FiEyeOff, FiLogOut, FiHome,
-  FiBarChart2, FiSettings, FiImage, FiUsers, FiClock, FiTrendingUp,
-  FiMousePointer, FiShield, FiTag, FiGrid,
+  FiPlus, FiEdit2, FiTrash2, FiEye, FiEyeOff,
+  FiBarChart2, FiClock, FiTrendingUp, FiMousePointer,
 } from "react-icons/fi";
 import { formatDate, getDisplayDate } from "@/lib/utils";
 
@@ -143,11 +142,6 @@ export default function AdminDashboard() {
     } catch { alert("更新に失敗しました"); }
   };
 
-  const handleLogout = () => {
-    document.cookie = "auth_token=; path=/; max-age=0";
-    router.push("/admin/login");
-  };
-
   // 現在の媒体タブでフィルターされた記事
   const filteredPosts = posts
     .filter((p) => (filterWriterId ? p.writer?.id === filterWriterId : true))
@@ -204,35 +198,15 @@ export default function AdminDashboard() {
   const mediaBasePath = `/${activeTab}`;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* ヘッダー */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-slate-500">管理画面</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/admin/analytics" className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="解析"><FiBarChart2 size={18} /></Link>
-            <Link href="/admin/custom-editors" className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="編集の追加"><FiSettings size={18} /></Link>
-            <Link href="/admin/banners" className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="バナー管理"><FiImage size={18} /></Link>
-            <Link href="/admin/services" className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="サービス管理"><FiGrid size={18} /></Link>
-            <Link href="/admin/writers" className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="執筆者管理"><FiUsers size={18} /></Link>
-            <Link href="/admin/categories" className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="カテゴリ管理"><FiTag size={18} /></Link>
-            <Link href="/" target="_blank" rel="noopener noreferrer" className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="サイト表示（別タブ）"><FiHome size={18} /></Link>
-            <Link href="/admin/settings" className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="設定"><FiShield size={18} /></Link>
-            <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title="ログアウト"><FiLogOut size={18} /></button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* 媒体タブ */}
-        <div className="flex gap-1 mb-6 bg-white rounded-lg border border-slate-200 p-1">
+    <div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {/* 媒体タブ（スマホでは横スクロール、PCでは等幅） */}
+        <div className="flex gap-1 mb-6 bg-white rounded-lg border border-slate-200 p-1 overflow-x-auto">
           {MEDIA_TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-all ${
+              className={`shrink-0 sm:flex-1 px-3 sm:px-4 py-2.5 rounded-md text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${
                 activeTab === tab.key
                   ? `${tab.bgColor} ${tab.color} shadow-sm`
                   : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"

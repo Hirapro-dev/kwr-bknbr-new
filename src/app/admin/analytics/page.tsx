@@ -2,17 +2,23 @@
 
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { FiArrowLeft, FiEye, FiMousePointer, FiBarChart2, FiChevronDown, FiExternalLink, FiArrowUp, FiArrowDown, FiClock } from "react-icons/fi";
+import { FiEye, FiMousePointer, FiBarChart2, FiChevronDown, FiExternalLink, FiArrowUp, FiArrowDown, FiClock, FiSend } from "react-icons/fi";
+import { CHANNEL_BUCKETS, CHANNEL_LABELS, type ChannelBucket } from "@/lib/tracking";
+
+/** チャネル別の件数（mail / line / direct） */
+type ChannelTally = Record<ChannelBucket, number>;
+type ChannelStats = { views: ChannelTally; clicks: ChannelTally };
 
 type PostSummary = { id: number; title: string; views: number; clicks: number; published: boolean; createdAt: string; scheduledAt: string | null; showForGen?: boolean; showForVip?: boolean; showForVC?: boolean; writer?: { id: number; name: string } | null };
 type Writer = { id: number; name: string };
-type ClickLogItem = { url: string; label: string | null; source: string | null; createdAt: string };
+type ClickLogItem = { url: string; label: string | null; source: string | null; channel: string | null; createdAt: string };
 type PostDetail = {
   post: { id: number; title: string; views: number };
   viewsByDate: Record<string, number>;
   clicksByDate: Record<string, number>;
   clicksByUrl: Record<string, { count: number; label: string | null; firstClickedAt: string; lastClickedAt: string }>;
+  viewsByChannel: ChannelTally;
+  clicksByChannel: ChannelTally;
   clickLog: ClickLogItem[];
   clickLogTruncated: boolean;
   totalClicks: number;
@@ -20,7 +26,26 @@ type PostDetail = {
 };
 
 type Period = "all" | "monthly" | "daily";
-type MediaTab = "gen" | "vip" | "vc";
+type MediaTab = "gen" | "vip" | "vc" | "wel";
+type ChannelFilter = "all" | ChannelBucket;
+
+/** クロス集計表に出す媒体の行（public = 配信を経由しない直接閲覧） */
+const MATRIX_ROWS: { key: string; label: string }[] = [
+  { key: "gen", label: "一般会員" },
+  { key: "vip", label: "正会員" },
+  { key: "vc", label: "仮想通貨長者" },
+  { key: "wel", label: "ウェルネス" },
+  { key: "public", label: "その他・直接" },
+];
+
+/** チャネル列の色分け（メルマガ＝青／LINE＝緑／直接＝グレー） */
+const CHANNEL_COLOR: Record<ChannelBucket, string> = {
+  mail: "text-blue-700",
+  line: "text-green-700",
+  direct: "text-slate-400",
+};
+
+const EMPTY_TALLY: ChannelTally = { mail: 0, line: 0, direct: 0 };
 
 /** 記事一覧の並べ替えキー */
 type SortKey = "views" | "clicks" | "date";
@@ -42,6 +67,7 @@ const MEDIA_TABS: { key: MediaTab; label: string; color: string; bgColor: string
   { key: "gen", label: "一般会員", color: "text-blue-700", bgColor: "bg-blue-50" },
   { key: "vip", label: "正会員", color: "text-emerald-700", bgColor: "bg-emerald-50" },
   { key: "vc", label: "仮想通貨長者", color: "text-purple-700", bgColor: "bg-purple-50" },
+  { key: "wel", label: "ウェルネス", color: "text-pink-700", bgColor: "bg-pink-50" },
 ];
 
 export default function AnalyticsPage() {
@@ -59,7 +85,11 @@ function AnalyticsContent() {
   const [detail, setDetail] = useState<PostDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [period, setPeriod] = useState<Period>("daily");
-  const [viewSource, setViewSource] = useState<"all" | "public" | "gen" | "vip" | "vc">("all");
+  const [viewSource, setViewSource] = useState<"all" | "public" | "gen" | "vip" | "vc" | "wel">("all");
+  const [viewChannel, setViewChannel] = useState<ChannelFilter>("all");
+  // 媒体 × チャネルのクロス集計、および記事ごとのチャネル内訳
+  const [channelMatrix, setChannelMatrix] = useState<Record<string, ChannelStats>>({});
+  const [channelByPost, setChannelByPost] = useState<Record<number, ChannelStats>>({});
   const [writers, setWriters] = useState<Writer[]>([]);
   const [filterWriterId, setFilterWriterId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<MediaTab>("gen");
@@ -88,6 +118,8 @@ function AnalyticsContent() {
         setTodayClicks(data.todayClicks || 0);
         setLast7DaysViews(data.last7DaysViews || 0);
         setLast7DaysClicks(data.last7DaysClicks || 0);
+        setChannelMatrix(data.channelMatrix || {});
+        setChannelByPost(data.channelByPost || {});
       }
     } catch { /* ignore */ }
     setLoading(false);
@@ -124,12 +156,12 @@ function AnalyticsContent() {
     if (selectedPost === null) { setDetail(null); return; }
     const loadDetail = async () => {
       setDetailLoading(true);
-      const res = await fetch(`/api/analytics?postId=${selectedPost}&period=${period}&viewSource=${viewSource}`);
+      const res = await fetch(`/api/analytics?postId=${selectedPost}&period=${period}&viewSource=${viewSource}&viewChannel=${viewChannel}`);
       if (res.ok) setDetail(await res.json());
       setDetailLoading(false);
     };
     loadDetail();
-  }, [selectedPost, period, viewSource]);
+  }, [selectedPost, period, viewSource, viewChannel]);
 
   // 配信日（予約投稿があればその日時、なければ作成日）をソート用の数値に変換
   const deliveredAt = (p: PostSummary) => new Date(p.scheduledAt || p.createdAt).getTime();
@@ -172,22 +204,15 @@ function AnalyticsContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 overflow-x-hidden">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3 min-w-0">
-          <Link href="/admin/dashboard" className="p-2 text-slate-400 hover:text-blue-600 rounded-lg shrink-0"><FiArrowLeft size={18} /></Link>
-          <span className="font-bold text-sm text-slate-900 truncate">アクセス解析</span>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 py-8 w-full min-w-0 box-border">
-        {/* 媒体タブ */}
-        <div className="flex gap-1 mb-6 bg-white rounded-lg border border-slate-200 p-1">
+    <div className="overflow-x-hidden">
+      <main className="max-w-5xl mx-auto px-4 py-6 w-full min-w-0 box-border">
+        {/* 媒体タブ（スマホでは横スクロール、PCでは等幅） */}
+        <div className="flex gap-1 mb-6 bg-white rounded-lg border border-slate-200 p-1 overflow-x-auto">
           {MEDIA_TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-all ${
+              className={`shrink-0 sm:flex-1 px-3 sm:px-4 py-2.5 rounded-md text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${
                 activeTab === tab.key
                   ? `${tab.bgColor} ${tab.color} shadow-sm`
                   : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
@@ -214,31 +239,95 @@ function AnalyticsContent() {
           </div>
         )}
 
-        {/* サマリーカード */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1"><FiEye size={13} /><span className="text-[11px] font-semibold">総閲覧数</span></div>
-            <p className="text-xl font-black text-slate-900">{totalViews.toLocaleString()}</p>
+        {/* サマリー（閲覧数・クリック数 × 全期間/当日/7日間）。スマホでも1画面に収まるよう2列表にまとめる */}
+        <div className="bg-white rounded-lg border border-slate-200 mb-6 overflow-hidden">
+          <div className="grid grid-cols-2 divide-x divide-slate-100">
+            {[
+              { icon: FiEye, label: "閲覧数", color: "text-slate-900", total: totalViews, today: todayViews, week: last7DaysViews },
+              { icon: FiMousePointer, label: "クリック数", color: "text-orange-600", total: totalClicks, today: todayClicks, week: last7DaysClicks },
+            ].map((m) => (
+              <div key={m.label} className="p-4">
+                <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                  <m.icon size={13} /><span className="text-[11px] font-semibold">{m.label}（全期間）</span>
+                </div>
+                <p className={`text-2xl font-black tabular-nums ${m.color}`}>{m.total.toLocaleString()}</p>
+                <div className="flex gap-4 mt-2 pt-2 border-t border-slate-100">
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400">当日</p>
+                    <p className="text-sm font-bold text-slate-700 tabular-nums">{m.today.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400">7日間</p>
+                    <p className="text-sm font-bold text-slate-700 tabular-nums">{m.week.toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1"><FiMousePointer size={13} /><span className="text-[11px] font-semibold">総クリック数</span></div>
-            <p className="text-xl font-black text-slate-900">{totalClicks.toLocaleString()}</p>
+        </div>
+
+        {/* 媒体 × 配信チャネルのクロス集計 */}
+        <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 mb-8 overflow-hidden">
+          <div className="flex items-center gap-2 text-slate-400 mb-1">
+            <FiSend size={14} /><span className="text-xs font-semibold">配信チャネル別（媒体 × メルマガ / LINE）</span>
           </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1"><FiEye size={13} /><span className="text-[11px] font-semibold">当日の閲覧</span></div>
-            <p className="text-xl font-black text-slate-900">{todayViews.toLocaleString()}</p>
-          </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1"><FiMousePointer size={13} /><span className="text-[11px] font-semibold">当日のクリック</span></div>
-            <p className="text-xl font-black text-slate-900">{todayClicks.toLocaleString()}</p>
-          </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1"><FiEye size={13} /><span className="text-[11px] font-semibold">7日間の閲覧</span></div>
-            <p className="text-xl font-black text-slate-900">{last7DaysViews.toLocaleString()}</p>
-          </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1"><FiMousePointer size={13} /><span className="text-[11px] font-semibold">7日間のクリック</span></div>
-            <p className="text-xl font-black text-slate-900">{last7DaysClicks.toLocaleString()}</p>
+          <p className="text-[10px] text-slate-400 mb-3">配信用URL（?ch=）から着地したアクセスを集計。上段が閲覧数、下段（橙）がクリック数。</p>
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-xs min-w-[420px]">
+              <thead>
+                <tr className="text-slate-400 border-b border-slate-100">
+                  <th className="text-left font-semibold py-2 pr-2">媒体</th>
+                  {CHANNEL_BUCKETS.map((c) => (
+                    <th key={c} className={`text-right font-semibold py-2 px-2 ${CHANNEL_COLOR[c]}`}>{CHANNEL_LABELS[c]}</th>
+                  ))}
+                  <th className="text-right font-semibold py-2 pl-2">合計</th>
+                </tr>
+              </thead>
+              <tbody>
+                {MATRIX_ROWS.map((row) => {
+                  const stats = channelMatrix[row.key] ?? { views: EMPTY_TALLY, clicks: EMPTY_TALLY };
+                  const viewTotal = CHANNEL_BUCKETS.reduce((s, c) => s + stats.views[c], 0);
+                  const clickTotal = CHANNEL_BUCKETS.reduce((s, c) => s + stats.clicks[c], 0);
+                  return (
+                    <tr key={row.key} className="border-b border-slate-50 last:border-0">
+                      <td className="py-2 pr-2 font-semibold text-slate-700 whitespace-nowrap">{row.label}</td>
+                      {CHANNEL_BUCKETS.map((c) => (
+                        <td key={c} className="text-right py-2 px-2 tabular-nums">
+                          <span className="font-bold text-slate-900">{stats.views[c].toLocaleString()}</span>
+                          <span className="block text-[10px] font-semibold text-orange-500">{stats.clicks[c].toLocaleString()}</span>
+                        </td>
+                      ))}
+                      <td className="text-right py-2 pl-2 tabular-nums bg-slate-50/60">
+                        <span className="font-black text-slate-900">{viewTotal.toLocaleString()}</span>
+                        <span className="block text-[10px] font-bold text-orange-500">{clickTotal.toLocaleString()}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {/* 全媒体の合計 */}
+                <tr className="border-t-2 border-slate-200">
+                  <td className="py-2 pr-2 font-bold text-slate-900 whitespace-nowrap">合計</td>
+                  {CHANNEL_BUCKETS.map((c) => {
+                    const v = MATRIX_ROWS.reduce((s, r) => s + (channelMatrix[r.key]?.views[c] ?? 0), 0);
+                    const cl = MATRIX_ROWS.reduce((s, r) => s + (channelMatrix[r.key]?.clicks[c] ?? 0), 0);
+                    return (
+                      <td key={c} className="text-right py-2 px-2 tabular-nums">
+                        <span className="font-black text-slate-900">{v.toLocaleString()}</span>
+                        <span className="block text-[10px] font-bold text-orange-500">{cl.toLocaleString()}</span>
+                      </td>
+                    );
+                  })}
+                  <td className="text-right py-2 pl-2 tabular-nums bg-slate-50/60">
+                    <span className="font-black text-slate-900">
+                      {MATRIX_ROWS.reduce((s, r) => s + CHANNEL_BUCKETS.reduce((t, c) => t + (channelMatrix[r.key]?.views[c] ?? 0), 0), 0).toLocaleString()}
+                    </span>
+                    <span className="block text-[10px] font-bold text-orange-500">
+                      {MATRIX_ROWS.reduce((s, r) => s + CHANNEL_BUCKETS.reduce((t, c) => t + (channelMatrix[r.key]?.clicks[c] ?? 0), 0), 0).toLocaleString()}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -282,6 +371,21 @@ function AnalyticsContent() {
                         {post.writer && <span className="text-[11px] text-slate-400">| {post.writer.name}</span>}
                         <span className="text-[11px] text-slate-500">| 会員: {memberLabel(post)}</span>
                       </div>
+                      {/* 配信チャネル別の内訳（閲覧数 / クリック数） */}
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {CHANNEL_BUCKETS.map((c) => {
+                          const stats = channelByPost[post.id];
+                          const v = stats?.views[c] ?? 0;
+                          const cl = stats?.clicks[c] ?? 0;
+                          if (v === 0 && cl === 0) return null;
+                          return (
+                            <span key={c} className={`text-[10px] font-semibold ${CHANNEL_COLOR[c]}`}>
+                              {CHANNEL_LABELS[c]} {v.toLocaleString()}
+                              <span className="text-orange-500"> / {cl.toLocaleString()}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
                       <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1.5">
                         <div className={`h-1.5 rounded-full transition-all ${barKey === "clicks" ? "bg-orange-500" : "bg-blue-500"}`}
                           style={{ width: `${(post[barKey] / maxBarValue) * 100}%` }} />
@@ -320,13 +424,23 @@ function AnalyticsContent() {
                       <h3 className="font-bold text-sm text-slate-900 break-words min-w-0">{detail.post.title}</h3>
                       <div className="flex flex-wrap items-center gap-2 shrink-0">
                         <div className="relative">
-                          <select value={viewSource} onChange={(e) => setViewSource(e.target.value as "all" | "public" | "gen" | "vip" | "vc")}
+                          <select value={viewSource} onChange={(e) => setViewSource(e.target.value as "all" | "public" | "gen" | "vip" | "vc" | "wel")}
                             className="appearance-none text-xs border border-slate-200 rounded-lg px-3 py-1.5 pr-7 bg-white focus:outline-none focus:border-blue-400 cursor-pointer">
                             <option value="all">全会員</option>
                             <option value="public">公開のみ</option>
                             <option value="gen">一般会員</option>
                             <option value="vip">正会員</option>
                             <option value="vc">仮想通貨長者</option>
+                            <option value="wel">ウェルネス</option>
+                          </select>
+                          <FiChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        </div>
+                        {/* 配信チャネルでの絞り込み（グラフ・クリック履歴に反映） */}
+                        <div className="relative">
+                          <select value={viewChannel} onChange={(e) => setViewChannel(e.target.value as ChannelFilter)}
+                            className="appearance-none text-xs border border-slate-200 rounded-lg px-3 py-1.5 pr-7 bg-white focus:outline-none focus:border-blue-400 cursor-pointer">
+                            <option value="all">全チャネル</option>
+                            {CHANNEL_BUCKETS.map((c) => <option key={c} value={c}>{CHANNEL_LABELS[c]}</option>)}
                           </select>
                           <FiChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         </div>
@@ -340,6 +454,21 @@ function AnalyticsContent() {
                           <FiChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         </div>
                       </div>
+                    </div>
+
+                    {/* この記事の配信チャネル別内訳（絞り込みに関わらず全期間の実数） */}
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                      {CHANNEL_BUCKETS.map((c) => (
+                        <div key={c} className="bg-slate-50 rounded-lg px-3 py-2">
+                          <p className={`text-[10px] font-bold ${CHANNEL_COLOR[c]}`}>{CHANNEL_LABELS[c]}</p>
+                          <p className="text-lg font-black text-slate-900 leading-tight tabular-nums">
+                            {(detail.viewsByChannel?.[c] ?? 0).toLocaleString()}
+                          </p>
+                          <p className="text-[10px] font-semibold text-orange-500 tabular-nums">
+                            クリック {(detail.clicksByChannel?.[c] ?? 0).toLocaleString()}
+                          </p>
+                        </div>
+                      ))}
                     </div>
 
                     {/* 閲覧数 棒グラフ */}
@@ -464,7 +593,14 @@ function AnalyticsContent() {
                               <p className="text-xs text-slate-700 truncate">{c.label || c.url}</p>
                               <p className="text-[10px] text-slate-400 break-all">{c.url}</p>
                             </div>
-                            {c.source && <span className="text-[10px] text-slate-400 bg-slate-50 rounded px-1.5 py-0.5 shrink-0">{c.source}</span>}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {c.channel && (
+                                <span className={`text-[10px] font-bold rounded px-1.5 py-0.5 ${c.channel === "line" ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-700"}`}>
+                                  {CHANNEL_LABELS[c.channel as ChannelBucket] ?? c.channel}
+                                </span>
+                              )}
+                              {c.source && <span className="text-[10px] text-slate-400 bg-slate-50 rounded px-1.5 py-0.5">{c.source}</span>}
+                            </div>
                           </div>
                         ))}
                       </div>

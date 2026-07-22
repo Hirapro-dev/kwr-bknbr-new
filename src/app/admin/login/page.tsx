@@ -1,16 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FiLock, FiUser, FiLogIn, FiEye, FiEyeOff } from "react-icons/fi";
+
+/** 前回ログインしたユーザー名の保存先。パスワードは保存しない */
+const REMEMBERED_USER_KEY = "kwr_admin_user";
 
 export default function AdminLogin() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // 前回「ログイン情報を保存」でログインしていれば、ユーザー名を復元する
+  useEffect(() => {
+    const saved = localStorage.getItem(REMEMBERED_USER_KEY);
+    if (saved) {
+      setUsername(saved);
+      setRemember(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,10 +34,13 @@ export default function AdminLogin() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, remember }),
       });
 
       if (res.ok) {
+        // ユーザー名だけを保存（パスワードはブラウザに残さない）
+        if (remember) localStorage.setItem(REMEMBERED_USER_KEY, username);
+        else localStorage.removeItem(REMEMBERED_USER_KEY);
         router.push("/admin/dashboard");
       } else {
         const data = await res.json();
@@ -96,6 +112,20 @@ export default function AdminLogin() {
               </button>
             </div>
           </div>
+
+          <label className="flex items-center gap-2 mb-6 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="rounded border-border text-primary focus:ring-primary/30"
+            />
+            <span className="text-sm text-text">ログイン情報を保存する</span>
+          </label>
+          <p className="text-xs text-text-light -mt-4 mb-6 leading-relaxed">
+            チェックすると90日間ログインしたままになり、次回はユーザー名が入力済みで開きます。
+            共有のパソコンでは使わないでください。
+          </p>
 
           <button
             type="submit"

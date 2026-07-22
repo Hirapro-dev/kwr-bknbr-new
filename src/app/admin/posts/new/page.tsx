@@ -553,7 +553,11 @@ export default function NewPost() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, content: finalContent, eyecatch: eyecatch || null, published: shouldPublish ?? published, isPickup, showForGen, showForVip, showForVC, showForWel, showDate, scheduledAt: scheduledAt ? new Date(scheduledAt + ":00+09:00").toISOString() : null, writerId: writerId || null, categoryIds: selectedCategoryIds }),
       });
-      if (res.ok) router.push("/admin/dashboard");
+      if (res.ok) {
+        // 保存直後に配信用URL（メルマガ/LINE）をコピーできるよう、編集画面へ遷移する
+        const created = await res.json();
+        router.push(created?.id ? `/admin/posts/${created.id}/edit` : "/admin/dashboard");
+      }
       else { const d = await res.json(); alert(d.error || "保存に失敗"); }
     } catch { alert("保存に失敗"); } finally { setSaving(false); }
   };

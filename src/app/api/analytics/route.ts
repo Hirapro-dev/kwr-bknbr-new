@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
+import { CHANNELS, normalizeChannel, type ChannelBucket } from "@/lib/tracking";
 
 // POST: 閲覧数を記録（フロント側から呼び出し）
-// body: { postId, source?: "public" | "gen" | "vip" | "vc" | "wel" }
+// body: { postId, source?: "public" | "gen" | "vip" | "vc" | "wel", channel?: "mail" | "line" }
 export async function POST(request: NextRequest) {
   try {
-    const { postId, source } = await request.json();
+    const { postId, source, channel } = await request.json();
     if (!postId) return NextResponse.json({ error: "postId required" }, { status: 400 });
     const validSource = source === "gen" || source === "vip" || source === "vc" || source === "wel" ? source : "public";
+    // 配信チャネル（mail / line）。不正値・未指定は null（＝直接・不明）
+    const validChannel = normalizeChannel(channel);
 
     await prisma.$transaction([
-      prisma.pageView.create({ data: { postId, source: validSource } }),
+      prisma.pageView.create({ data: { postId, source: validSource, channel: validChannel } }),
       prisma.post.update({ where: { id: postId }, data: { views: { increment: 1 } } }),
     ]);
 
@@ -30,6 +33,32 @@ export async function GET(request: NextRequest) {
   const postId = searchParams.get("postId");
   const period = searchParams.get("period") || "all"; // all, monthly, daily
   const viewSource = searchParams.get("viewSource") || "all"; // all, public, gen, vip, vc, wel
+  const viewChannel = searchParams.get("viewChannel") || "all"; // all, mail, line, direct
+
+  /**
+   * チャネル絞り込み条件を作る。
+   * "direct" は channel が未設定（＝配信URL経由でない）のレコードを指す。
+   */
+  const channelWhere = (value: string) =>
+    value === "direct"
+      ? { channel: null }
+      : normalizeChannel(value)
+        ? { channel: value }
+        : {};
+
+  /** groupBy の結果を { mail, line, direct } 形式に整える */
+  const toChannelTally = (
+    rows: { channel: string | null; _count: { id: number } }[]
+  ): Record<ChannelBucket, number> => {
+    const tally: Record<ChannelBucket, number> = { mail: 0, line: 0, direct: 0 };
+    rows.forEach((r) => {
+      const key = CHANNELS.includes(r.channel as (typeof CHANNELS)[number])
+        ? (r.channel as ChannelBucket)
+        : "direct";
+      tally[key] += r._count.id;
+    });
+    return tally;
+  };
 
   try {
     if (postId) {
@@ -60,6 +89,13 @@ export async function GET(request: NextRequest) {
           : viewSource === "gen" || viewSource === "vip" || viewSource === "vc" || viewSource === "wel"
             ? { source: viewSource }
             : {}),
+        ...channelWhere(viewChannel),
+      };
+
+      const clickWhere = {
+        postId: id,
+        ...(dateFilter ? { createdAt: { gte: dateFilter } } : {}),
+        ...channelWhere(viewChannel),
       };
 
       const views = await prisma.pageView.findMany({
@@ -68,12 +104,17 @@ export async function GET(request: NextRequest) {
       });
 
       const clicks = await prisma.click.findMany({
-        where: {
-          postId: id,
-          ...(dateFilter ? { createdAt: { gte: dateFilter } } : {}),
-        },
+        where: clickWhere,
         orderBy: { createdAt: "desc" },
       });
+
+      // チャネル別内訳（絞り込みの影響を受けない全期間の実数を返す）
+      const [viewChannelRows, clickChannelRows] = await Promise.all([
+        prisma.pageView.groupBy({ by: ["channel"], where: { postId: id }, _count: { id: true } }),
+        prisma.click.groupBy({ by: ["channel"], where: { postId: id }, _count: { id: true } }),
+      ]);
+      const viewsByChannel = toChannelTally(viewChannelRows);
+      const clicksByChannel = toChannelTally(clickChannelRows);
 
       // グループ化（日付キー → 件数）
       const viewsByDateRaw: Record<string, number> = {};
@@ -157,11 +198,13 @@ export async function GET(request: NextRequest) {
         url: c.url,
         label: c.label,
         source: c.source,
+        channel: c.channel,
         createdAt: c.createdAt.toISOString(),
       }));
 
       return NextResponse.json({
         post, viewsByDate, clicksByDate, clicksByUrl,
+        viewsByChannel, clicksByChannel,
         clickLog,
         clickLogTruncated: clicks.length > CLICK_LOG_LIMIT,
         totalClicks: clicks.length,
@@ -224,6 +267,51 @@ export async function GET(request: NextRequest) {
       grouped.forEach((g) => { viewsByPost[g.postId] = g._count.id; });
     }
 
+    // 媒体 × チャネルのクロス集計（メルマガ/LINEどちらが効いたかの全体像）
+    const emptyTally = (): Record<ChannelBucket, number> => ({ mail: 0, line: 0, direct: 0 });
+    const channelMatrix: Record<string, { views: Record<ChannelBucket, number>; clicks: Record<ChannelBucket, number> }> = {};
+    // 記事ごとのチャネル別内訳（記事一覧に「メルマガ n / LINE n」を表示するため）
+    const channelByPost: Record<number, { views: Record<ChannelBucket, number>; clicks: Record<ChannelBucket, number> }> = {};
+
+    if (postIds.length > 0) {
+      const [viewRows, clickRows, viewPostRows, clickPostRows] = await Promise.all([
+        prisma.pageView.groupBy({ by: ["source", "channel"], where: { postId: { in: postIds } }, _count: { id: true } }),
+        prisma.click.groupBy({ by: ["source", "channel"], where: { postId: { in: postIds } }, _count: { id: true } }),
+        prisma.pageView.groupBy({ by: ["postId", "channel"], where: { postId: { in: postIds }, ...sourceFilter }, _count: { id: true } }),
+        prisma.click.groupBy({ by: ["postId", "channel"], where: { postId: { in: postIds }, ...sourceFilter }, _count: { id: true } }),
+      ]);
+
+      /** channel 値を集計キー（mail/line/direct）に寄せる */
+      const bucketOf = (channel: string | null) =>
+        CHANNELS.includes(channel as (typeof CHANNELS)[number]) ? (channel as ChannelBucket) : "direct";
+
+      const fillMatrix = (
+        rows: { source: string | null; channel: string | null; _count: { id: number } }[],
+        kind: "views" | "clicks"
+      ) => {
+        rows.forEach((r) => {
+          // source が null / "public" のものは「直接閲覧」としてまとめる
+          const mediaKey = r.source === "gen" || r.source === "vip" || r.source === "vc" || r.source === "wel" ? r.source : "public";
+          channelMatrix[mediaKey] ??= { views: emptyTally(), clicks: emptyTally() };
+          channelMatrix[mediaKey][kind][bucketOf(r.channel)] += r._count.id;
+        });
+      };
+      fillMatrix(viewRows, "views");
+      fillMatrix(clickRows, "clicks");
+
+      const fillByPost = (
+        rows: { postId: number; channel: string | null; _count: { id: number } }[],
+        kind: "views" | "clicks"
+      ) => {
+        rows.forEach((r) => {
+          channelByPost[r.postId] ??= { views: emptyTally(), clicks: emptyTally() };
+          channelByPost[r.postId][kind][bucketOf(r.channel)] += r._count.id;
+        });
+      };
+      fillByPost(viewPostRows, "views");
+      fillByPost(clickPostRows, "clicks");
+    }
+
     // 当日の統計
     const now = new Date();
     const todayStart = new Date(now);
@@ -249,6 +337,7 @@ export async function GET(request: NextRequest) {
       posts, totalViews, totalClicks,
       todayViews, todayClicks, last7DaysViews, last7DaysClicks,
       viewsByPost, clicksByPost,
+      channelMatrix, channelByPost,
     });
   } catch {
     return NextResponse.json({ error: "解析データの取得に失敗しました" }, { status: 500 });
