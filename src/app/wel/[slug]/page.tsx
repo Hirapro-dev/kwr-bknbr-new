@@ -76,13 +76,8 @@ function similarityScore(textA: string, textB: string): number {
   return a.size > 0 ? match / a.size : 0;
 }
 
-async function getRecommendedPosts(slug: string) {
-  const current = await prisma.post.findUnique({
-    where: { slug, published: true, showForWel: true },
-    select: { id: true, excerpt: true, content: true },
-  });
-  if (!current) return [];
-
+/** 関連記事を返す。記事本体は呼び出し元で取得済みのものを受け取り、同じ行を二度引かない */
+async function getRecommendedPosts(current: { id: number; excerpt: string | null; content: string }) {
   const currentText = toComparableText(current.excerpt, current.content);
   const candidates = await prisma.post.findMany({
     where: { published: true, showForWel: true, id: { not: current.id } } as Prisma.PostWhereInput,
@@ -114,7 +109,7 @@ export default async function WelPostPage({
   if (!post || !post.published) notFound();
   if (post.showForWel !== true) notFound();
 
-  const recommendedPosts = await getRecommendedPosts(post.slug);
+  const recommendedPosts = await getRecommendedPosts(post);
   const isHtml = post.content.includes("<") && post.content.includes(">");
   // 瓦版カテゴリの記事はタイトルを小さめに表示
   const isKawaraban = post.categories?.some((c) => c.category.name === "瓦版") === true;
