@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
 import { CHANNELS, normalizeChannel, type ChannelBucket } from "@/lib/tracking";
+import type { Prisma } from "@prisma/client";
 
 // POST: 閲覧数を記録（フロント側から呼び出し）
 // body: { postId, source?: "public" | "gen" | "vip" | "vc" | "wel", channel?: "mail" | "line" }
@@ -231,11 +232,14 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 媒体フィルター
+    // ─── 絞り込み条件 ───
     const media = searchParams.get("media") || "all"; // all, gen, vip, vc, wel
+    const listPeriod = searchParams.get("listPeriod") || "all"; // all, 7d, 30d, 90d, 12m
+    const writerId = searchParams.get("writerId");
+    const q = searchParams.get("q")?.trim() || "";
 
     // 媒体に応じた記事フィルター
-    const postFilter = media === "gen"
+    const postFilter: Prisma.PostWhereInput = media === "gen"
       ? { showForGen: true }
       : media === "vip"
         ? { showForVip: true }
@@ -245,7 +249,25 @@ export async function GET(request: NextRequest) {
             ? { showForWel: true }
             : {};
 
-    // 全体サマリー
+    // 執筆者で絞り込む
+    if (writerId && !Number.isNaN(parseInt(writerId))) postFilter.writerId = parseInt(writerId);
+    // タイトルのキーワードで絞り込む（大文字小文字を区別しない）
+    if (q) postFilter.title = { contains: q, mode: "insensitive" };
+
+    /** 集計期間の開始日時。"all" なら期間を絞らない */
+    const listPeriodStart = (() => {
+      if (listPeriod === "all") return null;
+      const d = new Date();
+      if (listPeriod === "7d") d.setDate(d.getDate() - 7);
+      else if (listPeriod === "30d") d.setDate(d.getDate() - 30);
+      else if (listPeriod === "90d") d.setDate(d.getDate() - 90);
+      else if (listPeriod === "12m") d.setMonth(d.getMonth() - 12);
+      else return null;
+      d.setHours(0, 0, 0, 0);
+      return d;
+    })();
+    const listDateFilter = listPeriodStart ? { createdAt: { gte: listPeriodStart } } : {};
+
     const posts = await prisma.post.findMany({
       where: postFilter,
       select: { id: true, title: true, views: true, published: true, createdAt: true, scheduledAt: true, showForGen: true, showForVip: true, showForVC: true, showForWel: true, writer: { select: { id: true, name: true } } },
@@ -255,57 +277,42 @@ export async function GET(request: NextRequest) {
     // 媒体別の閲覧数・クリック数を集計
     const sourceFilter = media !== "all" ? { source: media } : {};
     const postIds = posts.map((p) => p.id);
+    const measureWhere = { postId: { in: postIds }, ...sourceFilter, ...listDateFilter };
 
-    const totalViews = postIds.length > 0
-      ? await prisma.pageView.count({ where: { postId: { in: postIds }, ...sourceFilter } })
-      : 0;
-    const totalClicks = postIds.length > 0
-      ? await prisma.click.count({ where: { postId: { in: postIds }, ...sourceFilter } })
-      : 0;
-
-    // 記事ごとのクリック数を集計（クリック数での並べ替えに使用）
-    // 記事別閲覧数（post.views）と粒度を揃えるため、媒体で絞り込まない合計値
-    const clicksByPost: Record<number, number> = {};
-    if (postIds.length > 0) {
-      const groupedClicks = await prisma.click.groupBy({
-        by: ["postId"],
-        where: { postId: { in: postIds } },
-        _count: { id: true },
-      });
-      groupedClicks.forEach((g) => { clicksByPost[g.postId] = g._count.id; });
-    }
-
-    // 記事ごとの媒体別閲覧数を集計
-    const viewsByPost: Record<number, number> = {};
-    if (postIds.length > 0 && media !== "all") {
-      const grouped = await prisma.pageView.groupBy({
-        by: ["postId"],
-        where: { postId: { in: postIds }, source: media },
-        _count: { id: true },
-      });
-      grouped.forEach((g) => { viewsByPost[g.postId] = g._count.id; });
-    }
-
-    // 記事ごとのチャネル別内訳（記事一覧に「メルマガ n / LINE n」を表示するため）
+    // 記事ごと・媒体ごとのチャネル別内訳をまとめて集計する。
+    // 期間で絞り込むため post.views は使わず、PageView / Click の実レコードから数える。
     const channelByPost: Record<number, ChannelStats> = {};
+    const viewsByPost: Record<number, number> = {};
+    const clicksByPost: Record<number, number> = {};
+    let channelMatrix: Record<string, ChannelStats> = {};
+    let totalViews = 0;
+    let totalClicks = 0;
 
     if (postIds.length > 0) {
-      const [viewPostRows, clickPostRows] = await Promise.all([
-        prisma.pageView.groupBy({ by: ["postId", "channel"], where: { postId: { in: postIds }, ...sourceFilter }, _count: { id: true } }),
-        prisma.click.groupBy({ by: ["postId", "channel"], where: { postId: { in: postIds }, ...sourceFilter }, _count: { id: true } }),
+      const [viewPostRows, clickPostRows, viewMediaRows, clickMediaRows] = await Promise.all([
+        prisma.pageView.groupBy({ by: ["postId", "channel"], where: measureWhere, _count: { id: true } }),
+        prisma.click.groupBy({ by: ["postId", "channel"], where: measureWhere, _count: { id: true } }),
+        prisma.pageView.groupBy({ by: ["source", "channel"], where: measureWhere, _count: { id: true } }),
+        prisma.click.groupBy({ by: ["source", "channel"], where: measureWhere, _count: { id: true } }),
       ]);
 
       const fillByPost = (
         rows: { postId: number; channel: string | null; _count: { id: number } }[],
-        kind: "views" | "clicks"
+        kind: "views" | "clicks",
+        totals: Record<number, number>
       ) => {
         rows.forEach((r) => {
           channelByPost[r.postId] ??= { views: emptyTally(), clicks: emptyTally() };
           channelByPost[r.postId][kind][bucketOf(r.channel)] += r._count.id;
+          totals[r.postId] = (totals[r.postId] ?? 0) + r._count.id;
         });
       };
-      fillByPost(viewPostRows, "views");
-      fillByPost(clickPostRows, "clicks");
+      fillByPost(viewPostRows, "views", viewsByPost);
+      fillByPost(clickPostRows, "clicks", clicksByPost);
+
+      channelMatrix = buildChannelMatrix(viewMediaRows, clickMediaRows);
+      totalViews = viewMediaRows.reduce((s, r) => s + r._count.id, 0);
+      totalClicks = clickMediaRows.reduce((s, r) => s + r._count.id, 0);
     }
 
     // 当日の統計
@@ -330,10 +337,10 @@ export async function GET(request: NextRequest) {
     ]);
 
     return NextResponse.json({
-      posts, totalViews, totalClicks,
+      posts, postCount: posts.length, totalViews, totalClicks,
       todayViews, todayClicks, last7DaysViews, last7DaysClicks,
       viewsByPost, clicksByPost,
-      channelByPost,
+      channelByPost, channelMatrix,
     });
   } catch {
     return NextResponse.json({ error: "解析データの取得に失敗しました" }, { status: 500 });

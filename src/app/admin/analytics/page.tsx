@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FiEye, FiMousePointer, FiBarChart2, FiChevronDown, FiExternalLink, FiArrowUp, FiArrowDown, FiClock, FiSend } from "react-icons/fi";
+import { FiEye, FiMousePointer, FiBarChart2, FiChevronDown, FiExternalLink, FiArrowUp, FiArrowDown, FiClock, FiSend, FiSearch } from "react-icons/fi";
 import { CHANNEL_BUCKETS, CHANNEL_LABELS, type ChannelBucket } from "@/lib/tracking";
 
 /** チャネル別の件数（mail / line / direct） */
@@ -27,6 +27,33 @@ type PostDetail = {
 
 type Period = "all" | "monthly" | "daily";
 type ChannelFilter = "all" | ChannelBucket;
+
+/** 画面上部のタブ */
+type ViewTab = "overview" | "posts";
+const VIEW_TABS: { key: ViewTab; label: string }[] = [
+  { key: "overview", label: "全体" },
+  { key: "posts", label: "個別記事" },
+];
+
+/** 絞り込み: 対象の媒体 */
+type MediaFilter = "all" | "gen" | "vip" | "vc" | "wel";
+const MEDIA_FILTERS: { key: MediaFilter; label: string }[] = [
+  { key: "all", label: "全媒体" },
+  { key: "gen", label: "一般会員" },
+  { key: "vip", label: "正会員" },
+  { key: "vc", label: "仮想通貨長者" },
+  { key: "wel", label: "ウェルネス" },
+];
+
+/** 絞り込み: 集計期間 */
+type ListPeriod = "all" | "7d" | "30d" | "90d" | "12m";
+const LIST_PERIODS: { key: ListPeriod; label: string }[] = [
+  { key: "all", label: "全期間" },
+  { key: "7d", label: "直近7日" },
+  { key: "30d", label: "直近30日" },
+  { key: "90d", label: "直近90日" },
+  { key: "12m", label: "直近12ヶ月" },
+];
 
 /** クロス集計表に出す媒体の行（public = 配信を経由しない直接閲覧） */
 const MATRIX_ROWS: { key: string; label: string }[] = [
@@ -134,7 +161,6 @@ export default function AnalyticsPage() {
 function AnalyticsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<PostSummary[]>([]);
   const [selectedPost, setSelectedPost] = useState<number | null>(null);
   const [detail, setDetail] = useState<PostDetail | null>(null);
@@ -144,26 +170,54 @@ function AnalyticsContent() {
   const [viewChannel, setViewChannel] = useState<ChannelFilter>("all");
   // 記事ごとのチャネル内訳（一覧の各行に表示する）
   const [channelByPost, setChannelByPost] = useState<Record<number, ChannelStats>>({});
+  // 全体タブの集計（媒体 × チャネル）
+  const [channelMatrix, setChannelMatrix] = useState<Record<string, ChannelStats>>({});
+  const [totals, setTotals] = useState({ postCount: 0, views: 0, clicks: 0 });
   const [writers, setWriters] = useState<Writer[]>([]);
-  const [filterWriterId, setFilterWriterId] = useState<number | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("views");
   const [sortDesc, setSortDesc] = useState(true);
 
-  // 全媒体の記事をまとめて取得する（媒体の内訳は各記事のチャネル別表で確認する）
+  // ─── 上部タブと絞り込み条件（全体・個別記事の両方に効く） ───
+  const [tab, setTab] = useState<ViewTab>("overview");
+  const [filterMedia, setFilterMedia] = useState<MediaFilter>("all");
+  const [filterPeriod, setFilterPeriod] = useState<ListPeriod>("all");
+  const [filterWriterId, setFilterWriterId] = useState<number | null>(null);
+  // キーワードは入力のたびに通信しないよう、確定した値を別に持つ
+  const [keywordInput, setKeywordInput] = useState("");
+  const [keyword, setKeyword] = useState("");
+  // スマホで記事を選んだときに詳細までスクロールさせるための参照
+  const detailRef = useRef<HTMLDivElement>(null);
+
+  // 現在の絞り込み条件を表す文字列。取得済みの条件と一致しない間が「読み込み中」
+  const filterKey = `${filterMedia}|${filterPeriod}|${filterWriterId ?? ""}|${keyword}`;
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const loading = loadedKey !== filterKey;
+
   const fetchAnalytics = useCallback(async () => {
-    setLoading(true);
     try {
-      const res = await fetch("/api/analytics?media=all");
+      const params = new URLSearchParams({ media: filterMedia, listPeriod: filterPeriod });
+      if (filterWriterId) params.set("writerId", String(filterWriterId));
+      if (keyword) params.set("q", keyword);
+
+      const res = await fetch(`/api/analytics?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        // 記事別クリック数をマージ（APIは記事一覧と別集計で返す）
+        // 記事別の閲覧数・クリック数は絞り込んだ期間で集計し直した値を使う
+        const viewsByPost: Record<number, number> = data.viewsByPost || {};
         const clicksByPost: Record<number, number> = data.clicksByPost || {};
-        setPosts((data.posts as PostSummary[]).map((p) => ({ ...p, clicks: clicksByPost[p.id] ?? 0 })));
+        setPosts((data.posts as PostSummary[]).map((p) => ({
+          ...p,
+          views: viewsByPost[p.id] ?? 0,
+          clicks: clicksByPost[p.id] ?? 0,
+        })));
         setChannelByPost(data.channelByPost || {});
+        setChannelMatrix(data.channelMatrix || {});
+        setTotals({ postCount: data.postCount ?? 0, views: data.totalViews ?? 0, clicks: data.totalClicks ?? 0 });
       }
     } catch { /* ignore */ }
-    setLoading(false);
-  }, []);
+    // 失敗しても読み込み表示のままにしない
+    setLoadedKey(filterKey);
+  }, [filterMedia, filterPeriod, filterWriterId, keyword, filterKey]);
 
   useEffect(() => {
     const init = async () => {
@@ -176,12 +230,16 @@ function AnalyticsContent() {
       } catch { /* ignore */ }
 
       const qPostId = searchParams.get("postId");
-      if (qPostId) setSelectedPost(parseInt(qPostId));
-
-      await fetchAnalytics();
+      if (qPostId) { setSelectedPost(parseInt(qPostId)); setTab("posts"); }
     };
     init();
-  }, [router, searchParams, fetchAnalytics]);
+  }, [router, searchParams]);
+
+  // 絞り込みが変わるたびに集計を取り直す
+  useEffect(() => {
+    const run = async () => { await fetchAnalytics(); };
+    run();
+  }, [fetchAnalytics]);
 
   useEffect(() => {
     // 選択解除時の detail クリアは選択操作側で行う（効果内で直接setStateしないため）
@@ -198,8 +256,8 @@ function AnalyticsContent() {
   // 配信日（予約投稿があればその日時、なければ作成日）をソート用の数値に変換
   const deliveredAt = (p: PostSummary) => new Date(p.scheduledAt || p.createdAt).getTime();
 
+  // 絞り込みはAPI側で済んでいるため、ここでは並べ替えのみ行う
   const filteredPosts = posts
-    .filter((p) => (filterWriterId ? p.writer?.id === filterWriterId : true))
     .slice()
     .sort((a, b) => {
       const diff =
@@ -234,26 +292,115 @@ function AnalyticsContent() {
   };
 
   return (
-    <div className="overflow-x-hidden">
+    // overflow-x-hidden は overflow-y を auto にしてしまい、スクロール領域が生まれて
+    // 詳細パネルの position:sticky が効かなくなる。clip なら overflow-y は visible の
+    // まま横あふれだけ抑えられる。
+    <div className="overflow-x-clip">
       <main className="max-w-5xl mx-auto px-4 py-6 w-full min-w-0 box-border">
-        {/* フィルター（執筆者のみ。媒体の内訳は記事ごとのチャネル別表で確認する） */}
-        {writers.length > 0 && (
-          <div className="mb-6 flex flex-wrap items-center gap-3">
-            <select
-              value={filterWriterId ?? ""}
-              onChange={(e) => setFilterWriterId(e.target.value ? parseInt(e.target.value) : null)}
-              className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600 focus:outline-none focus:border-blue-400"
+        {/* 全体 / 個別記事 タブ */}
+        <div className="flex gap-1 mb-4 bg-white rounded-lg border border-slate-200 p-1">
+          {VIEW_TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-all ${
+                tab === t.key ? "bg-blue-50 text-blue-700 shadow-sm" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+              }`}
             >
-              <option value="">全執筆者</option>
-              {writers.map((w) => (
-                <option key={w.id} value={w.id}>{w.name}</option>
-              ))}
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 絞り込み（両方のタブに効く） */}
+        <div className="bg-white rounded-lg border border-slate-200 p-3 mb-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={filterMedia} onChange={(e) => setFilterMedia(e.target.value as MediaFilter)}
+              className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600 focus:outline-none focus:border-blue-400">
+              {MEDIA_FILTERS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
             </select>
+
+            <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value as ListPeriod)}
+              className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600 focus:outline-none focus:border-blue-400">
+              {LIST_PERIODS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+            </select>
+
+            {writers.length > 0 && (
+              <select value={filterWriterId ?? ""} onChange={(e) => setFilterWriterId(e.target.value ? parseInt(e.target.value) : null)}
+                className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600 focus:outline-none focus:border-blue-400">
+                <option value="">全執筆者</option>
+                {writers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+            )}
+
+            {/* タイトルのキーワードで集計（Enterまたは虫めがねで確定） */}
+            <form
+              onSubmit={(e) => { e.preventDefault(); setKeyword(keywordInput.trim()); }}
+              className="flex items-center gap-1 min-w-0 flex-1 sm:flex-none"
+            >
+              <div className="relative min-w-0 flex-1 sm:w-56">
+                <FiSearch size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="search"
+                  value={keywordInput}
+                  onChange={(e) => setKeywordInput(e.target.value)}
+                  placeholder="タイトルのキーワードで集計"
+                  className="w-full text-xs border border-slate-200 rounded-lg pl-7 pr-2 py-1.5 text-slate-600 focus:outline-none focus:border-blue-400"
+                />
+              </div>
+              <button type="submit" className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-700">
+                集計
+              </button>
+            </form>
+
+            {(filterMedia !== "all" || filterPeriod !== "all" || filterWriterId || keyword) && (
+              <button
+                type="button"
+                onClick={() => { setFilterMedia("all"); setFilterPeriod("all"); setFilterWriterId(null); setKeyword(""); setKeywordInput(""); }}
+                className="text-[11px] text-slate-400 hover:text-slate-700 underline shrink-0"
+              >
+                絞り込みを解除
+              </button>
+            )}
           </div>
-        )}
+
+          {keyword && (
+            <p className="mt-2 text-[11px] text-slate-500">
+              タイトルに「<span className="font-bold text-slate-900">{keyword}</span>」を含む記事 <span className="font-bold">{totals.postCount}</span> 件を集計中
+            </p>
+          )}
+        </div>
 
         {loading ? (
           <div className="text-center py-20 text-slate-400">読み込み中...</div>
+        ) : tab === "overview" ? (
+          /* ─── 全体タブ ─── */
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "対象記事", value: totals.postCount, color: "text-slate-900" },
+                { label: "閲覧数", value: totals.views, color: "text-slate-900" },
+                { label: "クリック数", value: totals.clicks, color: "text-orange-600" },
+              ].map((c) => (
+                <div key={c.label} className="bg-white rounded-lg border border-slate-200 p-4">
+                  <p className="text-[11px] font-semibold text-slate-400 mb-1">{c.label}</p>
+                  <p className={`text-2xl font-black tabular-nums ${c.color}`}>{c.value.toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 overflow-hidden">
+              <div className="flex items-center gap-2 text-slate-400 mb-1">
+                <FiSend size={14} /><span className="text-xs font-semibold">配信チャネル別（媒体 × メルマガ / LINE）</span>
+              </div>
+              <p className="text-[10px] text-slate-400 mb-3">上段が閲覧数、下段（橙）がクリック数。</p>
+              {totals.views === 0 && totals.clicks === 0 ? (
+                <p className="text-xs text-slate-300 py-6 text-center">該当するデータがありません</p>
+              ) : (
+                <ChannelMatrixTable matrix={channelMatrix} />
+              )}
+            </div>
+          </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-6 min-w-0">
             {/* 記事一覧（閲覧数ランキング） */}
@@ -286,7 +433,11 @@ function AnalyticsContent() {
                     // 同じ記事をもう一度押したら選択解除
                     const next = post.id === selectedPost ? null : post.id;
                     setSelectedPost(next);
-                    if (next === null) setDetail(null);
+                    if (next === null) { setDetail(null); return; }
+                    // スマホでは詳細が一覧の下に回り込むため、選択したら詳細までスクロールする
+                    if (window.matchMedia("(max-width: 1023px)").matches) {
+                      detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
                   }}
                     className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors hover:bg-slate-50 ${selectedPost === post.id ? "bg-blue-50 border-l-2 border-blue-500" : ""}`}>
                     <span className="text-xs font-bold text-slate-300 w-5 shrink-0">{i + 1}</span>
@@ -332,8 +483,11 @@ function AnalyticsContent() {
               </div>
             </div>
 
-            {/* 詳細パネル */}
-            <div>
+            {/* 詳細パネル。PCでは画面に追従し、記事一覧を下までスクロールしても見えたままにする */}
+            <div
+              ref={detailRef}
+              className="lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 scroll-mt-20"
+            >
               {selectedPost === null ? (
                 <div className="bg-white rounded-lg border border-slate-200 p-8 text-center min-w-0">
                   <FiBarChart2 size={36} className="text-slate-200 mx-auto mb-3" />
