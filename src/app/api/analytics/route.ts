@@ -46,18 +46,38 @@ export async function GET(request: NextRequest) {
         ? { channel: value }
         : {};
 
-  /** groupBy の結果を { mail, line, direct } 形式に整える */
-  const toChannelTally = (
-    rows: { channel: string | null; _count: { id: number } }[]
-  ): Record<ChannelBucket, number> => {
-    const tally: Record<ChannelBucket, number> = { mail: 0, line: 0, direct: 0 };
-    rows.forEach((r) => {
-      const key = CHANNELS.includes(r.channel as (typeof CHANNELS)[number])
-        ? (r.channel as ChannelBucket)
-        : "direct";
-      tally[key] += r._count.id;
-    });
-    return tally;
+  type ChannelTally = Record<ChannelBucket, number>;
+  type ChannelStats = { views: ChannelTally; clicks: ChannelTally };
+  type SourceChannelRow = { source: string | null; channel: string | null; _count: { id: number } };
+
+  const emptyTally = (): ChannelTally => ({ mail: 0, line: 0, direct: 0 });
+  /** channel 値を集計キー（mail / line / direct）に寄せる */
+  const bucketOf = (channel: string | null): ChannelBucket =>
+    CHANNELS.includes(channel as (typeof CHANNELS)[number]) ? (channel as ChannelBucket) : "direct";
+  /** source 値を集計キーに寄せる（null や "public" は「その他・直接」にまとめる） */
+  const mediaKeyOf = (source: string | null) =>
+    source === "gen" || source === "vip" || source === "vc" || source === "wel" ? source : "public";
+
+  /**
+   * groupBy(["source","channel"]) の結果を
+   * { 媒体: { views: {mail,line,direct}, clicks: {...} } } のクロス集計に変換する。
+   * 全体サマリーと記事単位の両方で使う。
+   */
+  const buildChannelMatrix = (
+    viewRows: SourceChannelRow[],
+    clickRows: SourceChannelRow[]
+  ): Record<string, ChannelStats> => {
+    const matrix: Record<string, ChannelStats> = {};
+    const fill = (rows: SourceChannelRow[], kind: "views" | "clicks") => {
+      rows.forEach((r) => {
+        const key = mediaKeyOf(r.source);
+        matrix[key] ??= { views: emptyTally(), clicks: emptyTally() };
+        matrix[key][kind][bucketOf(r.channel)] += r._count.id;
+      });
+    };
+    fill(viewRows, "views");
+    fill(clickRows, "clicks");
+    return matrix;
   };
 
   try {
@@ -108,13 +128,12 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: "desc" },
       });
 
-      // チャネル別内訳（絞り込みの影響を受けない全期間の実数を返す）
-      const [viewChannelRows, clickChannelRows] = await Promise.all([
-        prisma.pageView.groupBy({ by: ["channel"], where: { postId: id }, _count: { id: true } }),
-        prisma.click.groupBy({ by: ["channel"], where: { postId: id }, _count: { id: true } }),
+      // この記事の 媒体 × チャネル クロス集計（絞り込みの影響を受けない全期間の実数）
+      const [viewMatrixRows, clickMatrixRows] = await Promise.all([
+        prisma.pageView.groupBy({ by: ["source", "channel"], where: { postId: id }, _count: { id: true } }),
+        prisma.click.groupBy({ by: ["source", "channel"], where: { postId: id }, _count: { id: true } }),
       ]);
-      const viewsByChannel = toChannelTally(viewChannelRows);
-      const clicksByChannel = toChannelTally(clickChannelRows);
+      const channelMatrix = buildChannelMatrix(viewMatrixRows, clickMatrixRows);
 
       // グループ化（日付キー → 件数）
       const viewsByDateRaw: Record<string, number> = {};
@@ -204,7 +223,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         post, viewsByDate, clicksByDate, clicksByUrl,
-        viewsByChannel, clicksByChannel,
+        channelMatrix,
         clickLog,
         clickLogTruncated: clicks.length > CLICK_LOG_LIMIT,
         totalClicks: clicks.length,
@@ -267,37 +286,14 @@ export async function GET(request: NextRequest) {
       grouped.forEach((g) => { viewsByPost[g.postId] = g._count.id; });
     }
 
-    // 媒体 × チャネルのクロス集計（メルマガ/LINEどちらが効いたかの全体像）
-    const emptyTally = (): Record<ChannelBucket, number> => ({ mail: 0, line: 0, direct: 0 });
-    const channelMatrix: Record<string, { views: Record<ChannelBucket, number>; clicks: Record<ChannelBucket, number> }> = {};
     // 記事ごとのチャネル別内訳（記事一覧に「メルマガ n / LINE n」を表示するため）
-    const channelByPost: Record<number, { views: Record<ChannelBucket, number>; clicks: Record<ChannelBucket, number> }> = {};
+    const channelByPost: Record<number, ChannelStats> = {};
 
     if (postIds.length > 0) {
-      const [viewRows, clickRows, viewPostRows, clickPostRows] = await Promise.all([
-        prisma.pageView.groupBy({ by: ["source", "channel"], where: { postId: { in: postIds } }, _count: { id: true } }),
-        prisma.click.groupBy({ by: ["source", "channel"], where: { postId: { in: postIds } }, _count: { id: true } }),
+      const [viewPostRows, clickPostRows] = await Promise.all([
         prisma.pageView.groupBy({ by: ["postId", "channel"], where: { postId: { in: postIds }, ...sourceFilter }, _count: { id: true } }),
         prisma.click.groupBy({ by: ["postId", "channel"], where: { postId: { in: postIds }, ...sourceFilter }, _count: { id: true } }),
       ]);
-
-      /** channel 値を集計キー（mail/line/direct）に寄せる */
-      const bucketOf = (channel: string | null) =>
-        CHANNELS.includes(channel as (typeof CHANNELS)[number]) ? (channel as ChannelBucket) : "direct";
-
-      const fillMatrix = (
-        rows: { source: string | null; channel: string | null; _count: { id: number } }[],
-        kind: "views" | "clicks"
-      ) => {
-        rows.forEach((r) => {
-          // source が null / "public" のものは「直接閲覧」としてまとめる
-          const mediaKey = r.source === "gen" || r.source === "vip" || r.source === "vc" || r.source === "wel" ? r.source : "public";
-          channelMatrix[mediaKey] ??= { views: emptyTally(), clicks: emptyTally() };
-          channelMatrix[mediaKey][kind][bucketOf(r.channel)] += r._count.id;
-        });
-      };
-      fillMatrix(viewRows, "views");
-      fillMatrix(clickRows, "clicks");
 
       const fillByPost = (
         rows: { postId: number; channel: string | null; _count: { id: number } }[],
@@ -337,7 +333,7 @@ export async function GET(request: NextRequest) {
       posts, totalViews, totalClicks,
       todayViews, todayClicks, last7DaysViews, last7DaysClicks,
       viewsByPost, clicksByPost,
-      channelMatrix, channelByPost,
+      channelByPost,
     });
   } catch {
     return NextResponse.json({ error: "解析データの取得に失敗しました" }, { status: 500 });

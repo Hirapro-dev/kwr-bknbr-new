@@ -9,7 +9,7 @@ import { CHANNEL_BUCKETS, CHANNEL_LABELS, type ChannelBucket } from "@/lib/track
 type ChannelTally = Record<ChannelBucket, number>;
 type ChannelStats = { views: ChannelTally; clicks: ChannelTally };
 
-type PostSummary = { id: number; title: string; views: number; clicks: number; published: boolean; createdAt: string; scheduledAt: string | null; showForGen?: boolean; showForVip?: boolean; showForVC?: boolean; writer?: { id: number; name: string } | null };
+type PostSummary = { id: number; title: string; views: number; clicks: number; published: boolean; createdAt: string; scheduledAt: string | null; showForGen?: boolean; showForVip?: boolean; showForVC?: boolean; showForWel?: boolean; writer?: { id: number; name: string } | null };
 type Writer = { id: number; name: string };
 type ClickLogItem = { url: string; label: string | null; source: string | null; channel: string | null; createdAt: string };
 type PostDetail = {
@@ -17,8 +17,8 @@ type PostDetail = {
   viewsByDate: Record<string, number>;
   clicksByDate: Record<string, number>;
   clicksByUrl: Record<string, { count: number; label: string | null; firstClickedAt: string; lastClickedAt: string }>;
-  viewsByChannel: ChannelTally;
-  clicksByChannel: ChannelTally;
+  /** この記事の 媒体 × チャネル クロス集計 */
+  channelMatrix: Record<string, ChannelStats>;
   clickLog: ClickLogItem[];
   clickLogTruncated: boolean;
   totalClicks: number;
@@ -26,7 +26,6 @@ type PostDetail = {
 };
 
 type Period = "all" | "monthly" | "daily";
-type MediaTab = "gen" | "vip" | "vc" | "wel";
 type ChannelFilter = "all" | ChannelBucket;
 
 /** クロス集計表に出す媒体の行（public = 配信を経由しない直接閲覧） */
@@ -46,6 +45,72 @@ const CHANNEL_COLOR: Record<ChannelBucket, string> = {
 };
 
 const EMPTY_TALLY: ChannelTally = { mail: 0, line: 0, direct: 0 };
+const EMPTY_STATS: ChannelStats = { views: EMPTY_TALLY, clicks: EMPTY_TALLY };
+
+/**
+ * 媒体 × 配信チャネルのクロス集計表。
+ * 全体サマリーと、記事を選んだときの詳細パネルの両方で使う。
+ */
+function ChannelMatrixTable({ matrix }: { matrix: Record<string, ChannelStats> }) {
+  const cell = (views: number, clicks: number, strong = false) => (
+    <>
+      <span className={`${strong ? "font-black" : "font-bold"} text-slate-900`}>{views.toLocaleString()}</span>
+      <span className={`block text-[10px] ${strong ? "font-bold" : "font-semibold"} text-orange-500`}>{clicks.toLocaleString()}</span>
+    </>
+  );
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <table className="w-full text-xs min-w-[420px]">
+        <thead>
+          <tr className="text-slate-400 border-b border-slate-100">
+            <th className="text-left font-semibold py-2 pr-2">媒体</th>
+            {CHANNEL_BUCKETS.map((c) => (
+              <th key={c} className={`text-right font-semibold py-2 px-2 ${CHANNEL_COLOR[c]}`}>{CHANNEL_LABELS[c]}</th>
+            ))}
+            <th className="text-right font-semibold py-2 pl-2">合計</th>
+          </tr>
+        </thead>
+        <tbody>
+          {MATRIX_ROWS.map((row) => {
+            const stats = matrix[row.key] ?? EMPTY_STATS;
+            const viewTotal = CHANNEL_BUCKETS.reduce((s, c) => s + stats.views[c], 0);
+            const clickTotal = CHANNEL_BUCKETS.reduce((s, c) => s + stats.clicks[c], 0);
+            return (
+              <tr key={row.key} className="border-b border-slate-50 last:border-0">
+                <td className="py-2 pr-2 font-semibold text-slate-700 whitespace-nowrap">{row.label}</td>
+                {CHANNEL_BUCKETS.map((c) => (
+                  <td key={c} className="text-right py-2 px-2 tabular-nums">{cell(stats.views[c], stats.clicks[c])}</td>
+                ))}
+                <td className="text-right py-2 pl-2 tabular-nums bg-slate-50/60">{cell(viewTotal, clickTotal, true)}</td>
+              </tr>
+            );
+          })}
+          {/* 全媒体の合計 */}
+          <tr className="border-t-2 border-slate-200">
+            <td className="py-2 pr-2 font-bold text-slate-900 whitespace-nowrap">合計</td>
+            {CHANNEL_BUCKETS.map((c) => (
+              <td key={c} className="text-right py-2 px-2 tabular-nums">
+                {cell(
+                  MATRIX_ROWS.reduce((s, r) => s + (matrix[r.key]?.views[c] ?? 0), 0),
+                  MATRIX_ROWS.reduce((s, r) => s + (matrix[r.key]?.clicks[c] ?? 0), 0),
+                  true
+                )}
+              </td>
+            ))}
+            <td className="text-right py-2 pl-2 tabular-nums bg-slate-50/60">
+              {cell(
+                MATRIX_ROWS.reduce((s, r) => s + CHANNEL_BUCKETS.reduce((t, c) => t + (matrix[r.key]?.views[c] ?? 0), 0), 0),
+                MATRIX_ROWS.reduce((s, r) => s + CHANNEL_BUCKETS.reduce((t, c) => t + (matrix[r.key]?.clicks[c] ?? 0), 0), 0),
+                true
+              )}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 /** 記事一覧の並べ替えキー */
 type SortKey = "views" | "clicks" | "date";
@@ -62,14 +127,6 @@ const formatDateTime = (iso: string) =>
     hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo",
   });
 
-// 媒体タブの定義
-const MEDIA_TABS: { key: MediaTab; label: string; color: string; bgColor: string }[] = [
-  { key: "gen", label: "一般会員", color: "text-blue-700", bgColor: "bg-blue-50" },
-  { key: "vip", label: "正会員", color: "text-emerald-700", bgColor: "bg-emerald-50" },
-  { key: "vc", label: "仮想通貨長者", color: "text-purple-700", bgColor: "bg-purple-50" },
-  { key: "wel", label: "ウェルネス", color: "text-pink-700", bgColor: "bg-pink-50" },
-];
-
 export default function AnalyticsPage() {
   return <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center"><p className="text-slate-400">読み込み中...</p></div>}><AnalyticsContent /></Suspense>;
 }
@@ -79,46 +136,29 @@ function AnalyticsContent() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<PostSummary[]>([]);
-  const [totalViews, setTotalViews] = useState(0);
-  const [totalClicks, setTotalClicks] = useState(0);
   const [selectedPost, setSelectedPost] = useState<number | null>(null);
   const [detail, setDetail] = useState<PostDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [period, setPeriod] = useState<Period>("daily");
   const [viewSource, setViewSource] = useState<"all" | "public" | "gen" | "vip" | "vc" | "wel">("all");
   const [viewChannel, setViewChannel] = useState<ChannelFilter>("all");
-  // 媒体 × チャネルのクロス集計、および記事ごとのチャネル内訳
-  const [channelMatrix, setChannelMatrix] = useState<Record<string, ChannelStats>>({});
+  // 記事ごとのチャネル内訳（一覧の各行に表示する）
   const [channelByPost, setChannelByPost] = useState<Record<number, ChannelStats>>({});
   const [writers, setWriters] = useState<Writer[]>([]);
   const [filterWriterId, setFilterWriterId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<MediaTab>("gen");
   const [sortKey, setSortKey] = useState<SortKey>("views");
   const [sortDesc, setSortDesc] = useState(true);
 
-  // 当日/7日間の統計
-  const [todayViews, setTodayViews] = useState(0);
-  const [todayClicks, setTodayClicks] = useState(0);
-  const [last7DaysViews, setLast7DaysViews] = useState(0);
-  const [last7DaysClicks, setLast7DaysClicks] = useState(0);
-
-  // 媒体タブ切り替え時にデータを取得
-  const fetchAnalytics = useCallback(async (media: MediaTab) => {
+  // 全媒体の記事をまとめて取得する（媒体の内訳は各記事のチャネル別表で確認する）
+  const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/analytics?media=${media}`);
+      const res = await fetch("/api/analytics?media=all");
       if (res.ok) {
         const data = await res.json();
         // 記事別クリック数をマージ（APIは記事一覧と別集計で返す）
         const clicksByPost: Record<number, number> = data.clicksByPost || {};
         setPosts((data.posts as PostSummary[]).map((p) => ({ ...p, clicks: clicksByPost[p.id] ?? 0 })));
-        setTotalViews(data.totalViews);
-        setTotalClicks(data.totalClicks);
-        setTodayViews(data.todayViews || 0);
-        setTodayClicks(data.todayClicks || 0);
-        setLast7DaysViews(data.last7DaysViews || 0);
-        setLast7DaysClicks(data.last7DaysClicks || 0);
-        setChannelMatrix(data.channelMatrix || {});
         setChannelByPost(data.channelByPost || {});
       }
     } catch { /* ignore */ }
@@ -138,22 +178,14 @@ function AnalyticsContent() {
       const qPostId = searchParams.get("postId");
       if (qPostId) setSelectedPost(parseInt(qPostId));
 
-      await fetchAnalytics(activeTab);
+      await fetchAnalytics();
     };
     init();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, searchParams]);
-
-  // 媒体タブ切り替え時
-  useEffect(() => {
-    fetchAnalytics(activeTab);
-    // タブ切り替え時に選択中の記事をリセット
-    setSelectedPost(null);
-    setDetail(null);
-  }, [activeTab, fetchAnalytics]);
+  }, [router, searchParams, fetchAnalytics]);
 
   useEffect(() => {
-    if (selectedPost === null) { setDetail(null); return; }
+    // 選択解除時の detail クリアは選択操作側で行う（効果内で直接setStateしないため）
+    if (selectedPost === null) return;
     const loadDetail = async () => {
       setDetailLoading(true);
       const res = await fetch(`/api/analytics?postId=${selectedPost}&period=${period}&viewSource=${viewSource}&viewChannel=${viewChannel}`);
@@ -187,13 +219,11 @@ function AnalyticsContent() {
   };
 
   const memberLabel = (p: PostSummary) => {
-    const g = p.showForGen !== false;
-    const f = p.showForVip !== false;
-    const vc = p.showForVC === true;
     const parts: string[] = [];
-    if (g) parts.push("一般");
-    if (f) parts.push("正");
-    if (vc) parts.push("VC");
+    if (p.showForGen !== false) parts.push("一般");
+    if (p.showForVip !== false) parts.push("正");
+    if (p.showForVC === true) parts.push("VC");
+    if (p.showForWel === true) parts.push("ウェルネス");
     return parts.length > 0 ? parts.join("・") : "—";
   };
 
@@ -206,24 +236,7 @@ function AnalyticsContent() {
   return (
     <div className="overflow-x-hidden">
       <main className="max-w-5xl mx-auto px-4 py-6 w-full min-w-0 box-border">
-        {/* 媒体タブ（スマホでは横スクロール、PCでは等幅） */}
-        <div className="flex gap-1 mb-6 bg-white rounded-lg border border-slate-200 p-1 overflow-x-auto">
-          {MEDIA_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`shrink-0 sm:flex-1 px-3 sm:px-4 py-2.5 rounded-md text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${
-                activeTab === tab.key
-                  ? `${tab.bgColor} ${tab.color} shadow-sm`
-                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* フィルター（執筆者のみ。会員フィルターはタブに統合） */}
+        {/* フィルター（執筆者のみ。媒体の内訳は記事ごとのチャネル別表で確認する） */}
         {writers.length > 0 && (
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <select
@@ -238,98 +251,6 @@ function AnalyticsContent() {
             </select>
           </div>
         )}
-
-        {/* サマリー（閲覧数・クリック数 × 全期間/当日/7日間）。スマホでも1画面に収まるよう2列表にまとめる */}
-        <div className="bg-white rounded-lg border border-slate-200 mb-6 overflow-hidden">
-          <div className="grid grid-cols-2 divide-x divide-slate-100">
-            {[
-              { icon: FiEye, label: "閲覧数", color: "text-slate-900", total: totalViews, today: todayViews, week: last7DaysViews },
-              { icon: FiMousePointer, label: "クリック数", color: "text-orange-600", total: totalClicks, today: todayClicks, week: last7DaysClicks },
-            ].map((m) => (
-              <div key={m.label} className="p-4">
-                <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-                  <m.icon size={13} /><span className="text-[11px] font-semibold">{m.label}（全期間）</span>
-                </div>
-                <p className={`text-2xl font-black tabular-nums ${m.color}`}>{m.total.toLocaleString()}</p>
-                <div className="flex gap-4 mt-2 pt-2 border-t border-slate-100">
-                  <div>
-                    <p className="text-[10px] font-semibold text-slate-400">当日</p>
-                    <p className="text-sm font-bold text-slate-700 tabular-nums">{m.today.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold text-slate-400">7日間</p>
-                    <p className="text-sm font-bold text-slate-700 tabular-nums">{m.week.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 媒体 × 配信チャネルのクロス集計 */}
-        <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 mb-8 overflow-hidden">
-          <div className="flex items-center gap-2 text-slate-400 mb-1">
-            <FiSend size={14} /><span className="text-xs font-semibold">配信チャネル別（媒体 × メルマガ / LINE）</span>
-          </div>
-          <p className="text-[10px] text-slate-400 mb-3">配信用URL（?ch=）から着地したアクセスを集計。上段が閲覧数、下段（橙）がクリック数。</p>
-          <div className="w-full overflow-x-auto">
-            <table className="w-full text-xs min-w-[420px]">
-              <thead>
-                <tr className="text-slate-400 border-b border-slate-100">
-                  <th className="text-left font-semibold py-2 pr-2">媒体</th>
-                  {CHANNEL_BUCKETS.map((c) => (
-                    <th key={c} className={`text-right font-semibold py-2 px-2 ${CHANNEL_COLOR[c]}`}>{CHANNEL_LABELS[c]}</th>
-                  ))}
-                  <th className="text-right font-semibold py-2 pl-2">合計</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MATRIX_ROWS.map((row) => {
-                  const stats = channelMatrix[row.key] ?? { views: EMPTY_TALLY, clicks: EMPTY_TALLY };
-                  const viewTotal = CHANNEL_BUCKETS.reduce((s, c) => s + stats.views[c], 0);
-                  const clickTotal = CHANNEL_BUCKETS.reduce((s, c) => s + stats.clicks[c], 0);
-                  return (
-                    <tr key={row.key} className="border-b border-slate-50 last:border-0">
-                      <td className="py-2 pr-2 font-semibold text-slate-700 whitespace-nowrap">{row.label}</td>
-                      {CHANNEL_BUCKETS.map((c) => (
-                        <td key={c} className="text-right py-2 px-2 tabular-nums">
-                          <span className="font-bold text-slate-900">{stats.views[c].toLocaleString()}</span>
-                          <span className="block text-[10px] font-semibold text-orange-500">{stats.clicks[c].toLocaleString()}</span>
-                        </td>
-                      ))}
-                      <td className="text-right py-2 pl-2 tabular-nums bg-slate-50/60">
-                        <span className="font-black text-slate-900">{viewTotal.toLocaleString()}</span>
-                        <span className="block text-[10px] font-bold text-orange-500">{clickTotal.toLocaleString()}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {/* 全媒体の合計 */}
-                <tr className="border-t-2 border-slate-200">
-                  <td className="py-2 pr-2 font-bold text-slate-900 whitespace-nowrap">合計</td>
-                  {CHANNEL_BUCKETS.map((c) => {
-                    const v = MATRIX_ROWS.reduce((s, r) => s + (channelMatrix[r.key]?.views[c] ?? 0), 0);
-                    const cl = MATRIX_ROWS.reduce((s, r) => s + (channelMatrix[r.key]?.clicks[c] ?? 0), 0);
-                    return (
-                      <td key={c} className="text-right py-2 px-2 tabular-nums">
-                        <span className="font-black text-slate-900">{v.toLocaleString()}</span>
-                        <span className="block text-[10px] font-bold text-orange-500">{cl.toLocaleString()}</span>
-                      </td>
-                    );
-                  })}
-                  <td className="text-right py-2 pl-2 tabular-nums bg-slate-50/60">
-                    <span className="font-black text-slate-900">
-                      {MATRIX_ROWS.reduce((s, r) => s + CHANNEL_BUCKETS.reduce((t, c) => t + (channelMatrix[r.key]?.views[c] ?? 0), 0), 0).toLocaleString()}
-                    </span>
-                    <span className="block text-[10px] font-bold text-orange-500">
-                      {MATRIX_ROWS.reduce((s, r) => s + CHANNEL_BUCKETS.reduce((t, c) => t + (channelMatrix[r.key]?.clicks[c] ?? 0), 0), 0).toLocaleString()}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
 
         {loading ? (
           <div className="text-center py-20 text-slate-400">読み込み中...</div>
@@ -361,7 +282,12 @@ function AnalyticsContent() {
                 {filteredPosts.length === 0 ? (
                   <p className="text-sm text-slate-400 p-4">記事がありません</p>
                 ) : filteredPosts.map((post, i) => (
-                  <button key={post.id} onClick={() => setSelectedPost(post.id === selectedPost ? null : post.id)}
+                  <button key={post.id} onClick={() => {
+                    // 同じ記事をもう一度押したら選択解除
+                    const next = post.id === selectedPost ? null : post.id;
+                    setSelectedPost(next);
+                    if (next === null) setDetail(null);
+                  }}
                     className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors hover:bg-slate-50 ${selectedPost === post.id ? "bg-blue-50 border-l-2 border-blue-500" : ""}`}>
                     <span className="text-xs font-bold text-slate-300 w-5 shrink-0">{i + 1}</span>
                     <div className="flex-1 min-w-0">
@@ -456,19 +382,13 @@ function AnalyticsContent() {
                       </div>
                     </div>
 
-                    {/* この記事の配信チャネル別内訳（絞り込みに関わらず全期間の実数） */}
-                    <div className="grid grid-cols-3 gap-2 mb-4">
-                      {CHANNEL_BUCKETS.map((c) => (
-                        <div key={c} className="bg-slate-50 rounded-lg px-3 py-2">
-                          <p className={`text-[10px] font-bold ${CHANNEL_COLOR[c]}`}>{CHANNEL_LABELS[c]}</p>
-                          <p className="text-lg font-black text-slate-900 leading-tight tabular-nums">
-                            {(detail.viewsByChannel?.[c] ?? 0).toLocaleString()}
-                          </p>
-                          <p className="text-[10px] font-semibold text-orange-500 tabular-nums">
-                            クリック {(detail.clicksByChannel?.[c] ?? 0).toLocaleString()}
-                          </p>
-                        </div>
-                      ))}
+                    {/* この記事の 媒体 × 配信チャネル クロス集計（絞り込みに関わらず全期間の実数） */}
+                    <div className="mb-5 pb-4 border-b border-slate-100">
+                      <div className="flex items-center gap-2 text-slate-400 mb-1">
+                        <FiSend size={13} /><span className="text-xs font-semibold">この記事の配信チャネル別</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mb-2">上段が閲覧数、下段（橙）がクリック数。</p>
+                      <ChannelMatrixTable matrix={detail.channelMatrix ?? {}} />
                     </div>
 
                     {/* 閲覧数 棒グラフ */}
