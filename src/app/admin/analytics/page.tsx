@@ -14,8 +14,6 @@ type Writer = { id: number; name: string };
 type ClickLogItem = { url: string; label: string | null; source: string | null; channel: string | null; createdAt: string };
 type PostDetail = {
   post: { id: number; title: string; views: number };
-  viewsByDate: Record<string, number>;
-  clicksByDate: Record<string, number>;
   clicksByUrl: Record<string, { count: number; label: string | null; firstClickedAt: string; lastClickedAt: string }>;
   /** この記事の 媒体 × チャネル クロス集計 */
   channelMatrix: Record<string, ChannelStats>;
@@ -515,7 +513,7 @@ function AnalyticsContent() {
                           </select>
                           <FiChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         </div>
-                        {/* 配信チャネルでの絞り込み（グラフ・クリック履歴に反映） */}
+                        {/* 配信チャネルでの絞り込み（リンク別クリック数・クリック履歴に反映） */}
                         <div className="relative">
                           <select value={viewChannel} onChange={(e) => setViewChannel(e.target.value as ChannelFilter)}
                             className="appearance-none text-xs border border-slate-200 rounded-lg px-3 py-1.5 pr-7 bg-white focus:outline-none focus:border-blue-400 cursor-pointer">
@@ -527,8 +525,8 @@ function AnalyticsContent() {
                         <div className="relative">
                           <select value={period} onChange={(e) => setPeriod(e.target.value as Period)}
                             className="appearance-none text-xs border border-slate-200 rounded-lg px-3 py-1.5 pr-7 bg-white focus:outline-none focus:border-blue-400 cursor-pointer">
-                            <option value="daily">日別（30日間）</option>
-                            <option value="monthly">月別（12ヶ月）</option>
+                            <option value="daily">直近30日</option>
+                            <option value="monthly">直近12ヶ月</option>
                             <option value="all">全期間</option>
                           </select>
                           <FiChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -537,71 +535,13 @@ function AnalyticsContent() {
                     </div>
 
                     {/* この記事の 媒体 × 配信チャネル クロス集計（絞り込みに関わらず全期間の実数） */}
-                    <div className="mb-5 pb-4 border-b border-slate-100">
+                    <div>
                       <div className="flex items-center gap-2 text-slate-400 mb-1">
                         <FiSend size={13} /><span className="text-xs font-semibold">この記事の配信チャネル別</span>
                       </div>
                       <p className="text-[10px] text-slate-400 mb-2">上段が閲覧数、下段（橙）がクリック数。</p>
                       <ChannelMatrixTable matrix={detail.channelMatrix ?? {}} />
                     </div>
-
-                    {/* 閲覧数 棒グラフ */}
-                    <div className="mb-2 flex items-center gap-2 text-slate-400"><FiEye size={14} /><span className="text-xs font-semibold">閲覧数推移</span></div>
-                    {Object.keys(detail.viewsByDate).length === 0 ? (
-                      <p className="text-xs text-slate-300 py-4 text-center">データがありません</p>
-                    ) : (
-                      <div className="w-full min-w-0 overflow-x-auto">
-                        <div className="flex items-end gap-[2px] sm:gap-[3px] h-28 mt-2 min-w-0" style={{ minWidth: "min(100%, 320px)" }}>
-                          {(() => {
-                            const entries = Object.entries(detail.viewsByDate).sort(([a], [b]) => a.localeCompare(b));
-                            const maxVal = Math.max(...entries.map(([, v]) => v), 1);
-                            return entries.map(([date, count]) => (
-                              <div key={date} className="flex-1 min-w-0 flex flex-col items-center group relative" style={{ minWidth: "4px" }}>
-                                <div className="w-full max-w-[12px] mx-auto bg-blue-500 rounded-t-sm transition-all hover:bg-blue-600"
-                                  style={{ height: `${(count / maxVal) * 100}%`, minHeight: count > 0 ? "4px" : "1px" }} />
-                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                  {date}: {count}
-                                </div>
-                              </div>
-                            ));
-                          })()}
-                        </div>
-                        <div className="flex justify-between mt-1 text-[10px] text-slate-300">
-                          <span>{Object.entries(detail.viewsByDate).sort(([a], [b]) => a.localeCompare(b))[0]?.[0] || ""}</span>
-                          <span>{Object.entries(detail.viewsByDate).sort(([a], [b]) => a.localeCompare(b)).at(-1)?.[0] || ""}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* クリック数推移グラフ */}
-                  <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 overflow-hidden">
-                    <div className="mb-2 flex items-center gap-2 text-slate-400"><FiMousePointer size={14} /><span className="text-xs font-semibold">クリック数推移</span></div>
-                    {!detail.clicksByDate || Object.keys(detail.clicksByDate).length === 0 ? (
-                      <p className="text-xs text-slate-300 py-4 text-center">クリックデータがありません</p>
-                    ) : (
-                      <div className="w-full min-w-0 overflow-x-auto">
-                        <div className="flex items-end gap-[2px] sm:gap-[3px] h-28 mt-2 min-w-0" style={{ minWidth: "min(100%, 320px)" }}>
-                          {(() => {
-                            const entries = Object.entries(detail.clicksByDate).sort(([a], [b]) => a.localeCompare(b));
-                            const maxVal = Math.max(...entries.map(([, v]) => v), 1);
-                            return entries.map(([date, count]) => (
-                              <div key={date} className="flex-1 min-w-0 flex flex-col items-center group relative" style={{ minWidth: "4px" }}>
-                                <div className="w-full max-w-[12px] mx-auto bg-orange-500 rounded-t-sm transition-all hover:bg-orange-600"
-                                  style={{ height: `${(count / maxVal) * 100}%`, minHeight: count > 0 ? "4px" : "1px" }} />
-                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                  {date}: {count}
-                                </div>
-                              </div>
-                            ));
-                          })()}
-                        </div>
-                        <div className="flex justify-between mt-1 text-[10px] text-slate-300">
-                          <span>{Object.entries(detail.clicksByDate).sort(([a], [b]) => a.localeCompare(b))[0]?.[0] || ""}</span>
-                          <span>{Object.entries(detail.clicksByDate).sort(([a], [b]) => a.localeCompare(b)).at(-1)?.[0] || ""}</span>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   {/* リンク別クリック数 */}

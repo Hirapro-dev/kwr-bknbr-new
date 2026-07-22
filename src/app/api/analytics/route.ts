@@ -89,40 +89,27 @@ export async function GET(request: NextRequest) {
         select: { id: true, title: true, views: true },
       });
 
-      let groupBy: "day" | "month" = "day";
+      // 期間の絞り込み（リンク別クリック数・クリック履歴に反映）
       let dateFilter: Date | undefined;
       const now = new Date();
-
       if (period === "daily") {
         dateFilter = new Date(now);
         dateFilter.setDate(dateFilter.getDate() - 30);
       } else if (period === "monthly") {
         dateFilter = new Date(now);
         dateFilter.setMonth(dateFilter.getMonth() - 12);
-        groupBy = "month";
       }
-
-      const viewWhere = {
-        postId: id,
-        ...(dateFilter ? { createdAt: { gte: dateFilter } } : {}),
-        ...(viewSource === "public"
-          ? { OR: [{ source: "public" }, { source: null }] }
-          : viewSource === "gen" || viewSource === "vip" || viewSource === "vc" || viewSource === "wel"
-            ? { source: viewSource }
-            : {}),
-        ...channelWhere(viewChannel),
-      };
 
       const clickWhere = {
         postId: id,
         ...(dateFilter ? { createdAt: { gte: dateFilter } } : {}),
         ...channelWhere(viewChannel),
+        ...(viewSource === "public"
+          ? { OR: [{ source: "public" }, { source: null }] }
+          : viewSource === "gen" || viewSource === "vip" || viewSource === "vc" || viewSource === "wel"
+            ? { source: viewSource }
+            : {}),
       };
-
-      const views = await prisma.pageView.findMany({
-        where: viewWhere,
-        orderBy: { createdAt: "asc" },
-      });
 
       const clicks = await prisma.click.findMany({
         where: clickWhere,
@@ -135,56 +122,6 @@ export async function GET(request: NextRequest) {
         prisma.click.groupBy({ by: ["source", "channel"], where: { postId: id }, _count: { id: true } }),
       ]);
       const channelMatrix = buildChannelMatrix(viewMatrixRows, clickMatrixRows);
-
-      // グループ化（日付キー → 件数）
-      const viewsByDateRaw: Record<string, number> = {};
-      views.forEach((v) => {
-        const key = groupBy === "month"
-          ? v.createdAt.toISOString().slice(0, 7)
-          : v.createdAt.toISOString().slice(0, 10);
-        viewsByDateRaw[key] = (viewsByDateRaw[key] || 0) + 1;
-      });
-
-      // クリック数も同様に日付別にグループ化
-      const clicksByDateRaw: Record<string, number> = {};
-      clicks.forEach((c) => {
-        const key = groupBy === "month"
-          ? c.createdAt.toISOString().slice(0, 7)
-          : c.createdAt.toISOString().slice(0, 10);
-        clicksByDateRaw[key] = (clicksByDateRaw[key] || 0) + 1;
-      });
-
-      // 日別・月別は全期間を0埋めして返す（グラフで棒が正しく並ぶように）
-      const viewsByDate: Record<string, number> = {};
-      const clicksByDate: Record<string, number> = {};
-      if (period === "daily" && dateFilter) {
-        const start = new Date(dateFilter);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(now);
-        end.setHours(23, 59, 59, 999);
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          const key = d.toISOString().slice(0, 10);
-          viewsByDate[key] = viewsByDateRaw[key] ?? 0;
-          clicksByDate[key] = clicksByDateRaw[key] ?? 0;
-        }
-      } else if (period === "monthly" && dateFilter) {
-        const startYear = dateFilter.getFullYear();
-        const startMonth = dateFilter.getMonth();
-        const endYear = now.getFullYear();
-        const endMonth = now.getMonth();
-        for (let y = startYear; y <= endYear; y++) {
-          const mStart = y === startYear ? startMonth : 0;
-          const mEnd = y === endYear ? endMonth : 11;
-          for (let m = mStart; m <= mEnd; m++) {
-            const key = `${y}-${String(m + 1).padStart(2, "0")}`;
-            viewsByDate[key] = viewsByDateRaw[key] ?? 0;
-            clicksByDate[key] = clicksByDateRaw[key] ?? 0;
-          }
-        }
-      } else {
-        Object.assign(viewsByDate, viewsByDateRaw);
-        Object.assign(clicksByDate, clicksByDateRaw);
-      }
 
       // URL別に集計（初回・最終クリック日時も保持）
       // 配信ごとに付与されるトラッキングパラメータ（?_stp=... 等）で集計が分散するため、
@@ -223,7 +160,7 @@ export async function GET(request: NextRequest) {
       }));
 
       return NextResponse.json({
-        post, viewsByDate, clicksByDate, clicksByUrl,
+        post, clicksByUrl,
         channelMatrix,
         clickLog,
         clickLogTruncated: clicks.length > CLICK_LOG_LIMIT,
