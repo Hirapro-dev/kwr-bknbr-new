@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import {
   FiEye, FiCode, FiBold, FiItalic, FiList, FiLink, FiImage, FiType,
-  FiAlignLeft, FiYoutube, FiMessageSquare, FiBookOpen,
+  FiAlignLeft, FiFilm, FiMessageSquare, FiBookOpen,
   FiChevronDown, FiStar, FiMoreHorizontal,
 } from "react-icons/fi";
 
@@ -30,7 +30,7 @@ type ToolbarProps = {
   onInsertHeading: (level: number) => void;
   onInsertLink: () => void;
   onInsertImage: () => void;
-  onInsertYoutube: () => void;
+  onInsertVideo: () => void;
   onInsertNote: (color?: string) => void;
   onInsertQuote: (color?: string) => void;
   onInsertButton: (color?: string) => void;
@@ -92,6 +92,7 @@ const BLOCK_COLORS = [
 ];
 
 const BUTTON_COLORS = [
+  { label: "紺×ゴールド", bg: "#071a2f", gradient: "linear-gradient(115deg, #06172a 0%, #0b2741 68%, #d8a62f 100%)", cls: "btn-lux" },
   { label: "ブルー", bg: "#1e40af", gradient: "linear-gradient(to right, #007adf, #00ecbc)", cls: "btn-c" },
   { label: "ブラック", bg: "#111827", gradient: "linear-gradient(to right, #1f2937, #374151, #1f2937)", cls: "btn-k" },
   { label: "グリーン", bg: "#16a34a", gradient: "linear-gradient(to right, #38a169, #48bb78, #68d391)", cls: "btn-g" },
@@ -115,7 +116,7 @@ function ButtonColorPopup({ onSelect, dark = false }: { onSelect: (color: string
         <ButtonIcon size={14} /><FiChevronDown size={12} />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 p-2 min-w-[180px]">
+        <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 p-2 min-w-[210px]">
           <div className="grid grid-cols-3 gap-1.5">
             {BUTTON_COLORS.map((c) => (
               <button
@@ -140,7 +141,7 @@ const TB = "px-2 py-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounde
 export default function EditorToolbar({
   mode, uploading, customEditors = [],
   onToggleMode, onExecCommand, onInsertHeading, onInsertLink, onInsertImage,
-  onInsertYoutube, onInsertNote, onInsertQuote, onInsertButton, onInsertCustomHtml, onInsertList,
+  onInsertVideo, onInsertNote, onInsertQuote, onInsertButton, onInsertCustomHtml, onInsertList,
 }: ToolbarProps) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
   return (
@@ -172,7 +173,7 @@ export default function EditorToolbar({
                 <button onClick={() => onInsertCustomHtml("<p><br></p>")} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors whitespace-nowrap" title="段落">p</button>
                 <button onClick={onInsertLink} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="リンク">a</button>
                 <button onClick={onInsertImage} disabled={uploading} className={`px-2 py-1.5 text-xs font-mono rounded transition-colors ${uploading ? "bg-slate-800 text-slate-500" : "bg-slate-700 hover:bg-slate-600 text-slate-200"}`} title="画像">img</button>
-                <button onClick={onInsertYoutube} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="YouTube">video</button>
+                <button onClick={onInsertVideo} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="動画（YouTube・mp4）">video</button>
                 <button onClick={() => onInsertCustomHtml("<h2></h2>")} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="H2">h2</button>
                 <button onClick={() => onInsertCustomHtml("<h3></h3>")} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="H3">h3</button>
                 <Dropdown label="引用" icon={<FiBookOpen size={14} />} dark>
@@ -219,7 +220,7 @@ export default function EditorToolbar({
                 </Dropdown>
                 <button onClick={onInsertLink} className={TB} title="リンク"><FiLink size={14} /></button>
                 <button onClick={onInsertImage} disabled={uploading} className={`${TB} disabled:opacity-50`} title="画像"><FiImage size={14} /></button>
-                <button onClick={onInsertYoutube} className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="YouTube"><FiYoutube size={14} /></button>
+                <button onClick={onInsertVideo} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="動画（YouTube・mp4）"><FiFilm size={14} /></button>
                 <Dropdown label="引用" icon={<FiBookOpen size={14} />}>
                   {BLOCK_COLORS.map((c) => (
                     <DropdownItem key={c.label} onClick={() => onInsertQuote(c.border)}>
@@ -258,7 +259,7 @@ export default function EditorToolbar({
             <button onClick={() => onInsertCustomHtml("<p><br></p>")} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="段落">p</button>
             <button onClick={onInsertLink} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="リンク">a</button>
             <button onClick={onInsertImage} disabled={uploading} className={`px-2 py-1.5 text-xs font-mono rounded transition-colors ${uploading ? "bg-slate-800 text-slate-500" : "bg-slate-700 hover:bg-slate-600 text-slate-200"}`} title="画像">img</button>
-            <button onClick={onInsertYoutube} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="YouTube">video</button>
+            <button onClick={onInsertVideo} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="動画（YouTube・mp4）">video</button>
             <button onClick={() => onInsertCustomHtml("<ul>\n<li>項目</li>\n</ul>")} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="箇条書き">ul</button>
             <button onClick={() => onInsertCustomHtml("<ol>\n<li>項目</li>\n</ol>")} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="番号リスト">ol</button>
             <button onClick={() => onInsertCustomHtml("<li></li>")} className="px-2 py-1.5 text-xs font-mono bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors" title="リスト項目">li</button>
@@ -342,7 +343,7 @@ export default function EditorToolbar({
 
             <button onClick={onInsertLink} className={TB} title="リンク"><FiLink size={14} /></button>
             <button onClick={onInsertImage} disabled={uploading} className={`${TB} disabled:opacity-50`} title="画像"><FiImage size={14} /></button>
-            <button onClick={onInsertYoutube} className="px-2 py-1 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="YouTube"><FiYoutube size={14} /></button>
+            <button onClick={onInsertVideo} className="px-2 py-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="動画（YouTube・mp4）"><FiFilm size={14} /></button>
 
             <div className="w-px h-5 bg-slate-200 mx-1" />
 

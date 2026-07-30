@@ -9,7 +9,7 @@ export function extractPlainText(html: string, maxLength: number = 400): string 
   const doc = new DOMParser().parseFromString(html, "text/html");
 
   // 不要な要素を除去
-  doc.querySelectorAll("script, style, iframe, noscript, .btn-wrap").forEach((el) => el.remove());
+  doc.querySelectorAll("script, style, iframe, video, audio, noscript, .btn-wrap").forEach((el) => el.remove());
 
   // textContentでテキスト取得し、空白を正規化
   const text = (doc.body.textContent || "")

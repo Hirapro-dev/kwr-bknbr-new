@@ -10,6 +10,9 @@ import EditorToolbar from "@/components/EditorToolbar";
 import ThumbnailGenerator from "@/components/ThumbnailGenerator";
 import LineImageGenerator from "@/components/LineImageGenerator";
 import DeliveryUrlPanel from "@/components/DeliveryUrlPanel";
+import ButtonIconPicker from "@/components/ButtonIconPicker";
+import VideoDialog from "@/components/VideoDialog";
+import { BUTTON_ICON_PRESETS, suggestButtonIcon, type ButtonIconPreset } from "@/lib/button-icons";
 
 type EditorMode = "visual" | "code";
 /** ボタンの開き方: tab=別タブ / window=別ウィンドウ / modal=ポップアップ表示 */
@@ -41,10 +44,13 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
   const [linkNewTab, setLinkNewTab] = useState(false);
   const [linkColor, setLinkColor] = useState("");
   const [buttonDialogOpen, setButtonDialogOpen] = useState(false);
+  const [videoDialogOpen, setVideoDialogOpen] = useState(false);
   const [buttonText, setButtonText] = useState("詳しくはこちら");
   const [buttonUrl, setButtonUrl] = useState("");
   const [buttonOpenMode, setButtonOpenMode] = useState<ButtonOpenMode>("tab");
   const [buttonColor, setButtonColor] = useState("#1e40af");
+  const [buttonIcon, setButtonIcon] = useState<ButtonIconPreset>("growth");
+  const [buttonIconUrl, setButtonIconUrl] = useState("");
   const [writers, setWriters] = useState<Writer[]>([]);
   const [writerId, setWriterId] = useState("");
   const [categories, setCategories] = useState<CategoryItem[]>([]);
@@ -441,12 +447,8 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
   };
   const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  const insertYoutube = () => {
-    const u = prompt("YouTubeのURLを入力:"); if (!u) return;
-    const m = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
-    if (!m) { alert("有効なYouTube URLを入力してください"); return; }
-    insertHtml(`<div class="youtube-wrap"><iframe src="https://www.youtube.com/embed/${m[1]}" allowfullscreen></iframe></div>`);
-  };
+  // 動画の挿入はダイアログ（VideoDialog）側でURL・アップロード・再生方式を決めてHTMLを受け取る
+  const insertVideo = (html: string) => insertHtml(html);
 
   const insertNote = (color = "#3b82f6") => {
     const t = prompt("注釈テキスト:"); if (!t) return;
@@ -464,6 +466,8 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
     setButtonUrl("");
     setButtonOpenMode("tab");
     setButtonColor(colorData);
+    setButtonIcon("growth");
+    setButtonIconUrl("");
     if (mode === "visual" && editorRef.current) {
       const anchor = getSelectedButtonAnchor();
       if (anchor) {
@@ -474,7 +478,19 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
         setButtonOpenMode(popup === "window" ? "window" : popup === "modal" ? "modal" : "tab");
         const cls = anchor.className;
         const styleBg = anchor.style.background || "";
-        if (cls.includes("btn-c")) setButtonColor(JSON.stringify({ cls: "btn-c" }));
+        const savedIcon = anchor.dataset.icon as ButtonIconPreset | undefined;
+        if (savedIcon === "custom" || (savedIcon && BUTTON_ICON_PRESETS.some((icon) => icon.value === savedIcon))) {
+          setButtonIcon(savedIcon);
+          setButtonIconUrl(anchor.dataset.iconUrl || "");
+        } else {
+          const suggested = suggestButtonIcon(anchor.textContent || "");
+          if (suggested) {
+            setButtonIcon(suggested.icon);
+            setButtonIconUrl(suggested.imageUrl);
+          }
+        }
+        if (cls.includes("btn-lux")) setButtonColor(JSON.stringify({ cls: "btn-lux" }));
+        else if (cls.includes("btn-c")) setButtonColor(JSON.stringify({ cls: "btn-c" }));
         else if (cls.includes("btn-k")) setButtonColor(JSON.stringify({ cls: "btn-k" }));
         else if (cls.includes("btn-r")) setButtonColor(JSON.stringify({ cls: "btn-r" }));
         else if (cls.includes("btn-g")) setButtonColor(JSON.stringify({ cls: "btn-g" }));
@@ -503,6 +519,11 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
       const parsed = JSON.parse(buttonColor);
       if (parsed.cls) btnClass = `btn ${parsed.cls}`;
     } catch { /* legacy: plain color string */ }
+    const iconAttr = btnClass.includes("btn-lux") ? ` data-icon="${buttonIcon}"` : "";
+    const escapedIconUrl = buttonIconUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    const customIconAttrs = btnClass.includes("btn-lux") && buttonIconUrl
+      ? ` data-icon-url="${escapedIconUrl}" style="--button-icon-image:url('${escapedIconUrl}')"`
+      : "";
     if (mode === "visual" && editorRef.current) {
       const anchor = editingButtonAnchorRef.current;
       if (anchor && editorRef.current.contains(anchor)) {
@@ -512,6 +533,20 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
         if (isPopup) anchor.setAttribute("data-popup", buttonOpenMode);
         else anchor.removeAttribute("data-popup");
         anchor.className = btnClass;
+        if (btnClass.includes("btn-lux")) {
+          anchor.dataset.icon = buttonIcon;
+          if (buttonIconUrl) {
+            anchor.dataset.iconUrl = buttonIconUrl;
+            anchor.style.setProperty("--button-icon-image", `url("${buttonIconUrl.replace(/"/g, '\\"')}")`);
+          } else {
+            anchor.removeAttribute("data-icon-url");
+            anchor.style.removeProperty("--button-icon-image");
+          }
+        } else {
+          anchor.removeAttribute("data-icon");
+          anchor.removeAttribute("data-icon-url");
+          anchor.style.removeProperty("--button-icon-image");
+        }
         anchor.innerHTML = inner;
         editingButtonAnchorRef.current = null;
         syncFromVisual();
@@ -519,7 +554,7 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
       }
       editingButtonAnchorRef.current = null;
     }
-    const html = `<div class="btn-wrap"><a href="${u}"${targetAttr}${popupAttr} class="${btnClass}">${inner}</a></div>`;
+    const html = `<div class="btn-wrap"><a href="${u}"${targetAttr}${popupAttr}${iconAttr}${customIconAttrs} class="${btnClass}">${inner}</a></div>`;
     if (mode === "visual" && editorRef.current) {
       const editor = editorRef.current;
       const wrapper = document.createElement("div");
@@ -626,7 +661,7 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
           setMode(mode === "visual" ? "code" : "visual");
         }}
         onExecCommand={execCommand} onInsertHeading={insertHeading} onInsertLink={insertLink}
-        onInsertImage={() => fileInputRef.current?.click()} onInsertYoutube={insertYoutube}
+        onInsertImage={() => fileInputRef.current?.click()} onInsertVideo={() => setVideoDialogOpen(true)}
         onInsertNote={insertNote} onInsertQuote={insertQuote} onInsertButton={insertButton}
         onInsertCustomHtml={insertHtml} onInsertList={insertList} />
 
@@ -767,6 +802,13 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
         </div>
 
+        {videoDialogOpen && (
+          <VideoDialog
+            onInsert={insertVideo}
+            onClose={() => setVideoDialogOpen(false)}
+          />
+        )}
+
         {googleDocDialogOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={() => !googleDocLoading && setGoogleDocDialogOpen(false)}>
             <div className="bg-white rounded-lg border border-slate-200 shadow-xl p-5 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
@@ -812,7 +854,7 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
         {/* ボタンリンク挿入・編集ダイアログ */}
         {buttonDialogOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={() => { setButtonDialogOpen(false); editingButtonAnchorRef.current = null; }}>
-            <div className="bg-white rounded-lg border border-slate-200 shadow-xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="max-h-[calc(100vh-2rem)] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
               <p className="text-sm font-semibold text-slate-800 mb-3">{editingButtonAnchorRef.current ? "ボタンリンクを編集" : "ボタンリンク"}</p>
               <input type="text" value={buttonText} onChange={(e) => setButtonText(e.target.value)} placeholder="ボタンテキスト" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:border-blue-500" />
               <p className="text-xs text-slate-500 mb-2">「|」でスマホのみ改行、「||」でPC・スマホ両方で改行</p>
@@ -821,6 +863,7 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
                 <label className="block text-xs text-slate-500 mb-1.5">ボタン色</label>
                 <div className="flex gap-2">
                   {[
+                    { label: "紺×ゴールド", gradient: "linear-gradient(115deg, #06172a 0%, #0b2741 68%, #d8a62f 100%)", cls: "btn-lux" },
                     { label: "ブルー", gradient: "linear-gradient(to right, #007adf, #00ecbc)", cls: "btn-c" },
                     { label: "ブラック", gradient: "linear-gradient(to right, #1f2937, #374151, #1f2937)", cls: "btn-k" },
                     { label: "グリーン", gradient: "linear-gradient(to right, #38a169, #48bb78, #68d391)", cls: "btn-g" },
@@ -838,6 +881,17 @@ export default function EditPost({ params }: { params: Promise<{ id: string }> }
                   })}
                 </div>
               </div>
+              {(() => { try { return JSON.parse(buttonColor).cls === "btn-lux"; } catch { return false; } })() && (
+                <ButtonIconPicker
+                  buttonText={buttonText}
+                  value={buttonIcon}
+                  customIconUrl={buttonIconUrl}
+                  onChange={(icon, url) => {
+                    setButtonIcon(icon);
+                    if (url !== undefined) setButtonIconUrl(url);
+                  }}
+                />
+              )}
               <div className="mb-4">
                 <label className="block text-xs text-slate-500 mb-1.5">リンクの開き方</label>
                 <div className="grid grid-cols-3 gap-1.5">
