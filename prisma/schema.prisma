@@ -157,3 +157,12 @@ model Service {
 
   @@map("services")
 }
+
+// 管理画面の選択一覧から非表示にしたボタンアイコン
+// 既存記事内のアイコン表示は維持するため、画像自体は削除しない
+model HiddenButtonIcon {
+  key       String   @id
+  createdAt DateTime @default(now())
+
+  @@map("hidden_button_icons")
+}
