@@ -567,7 +567,7 @@ a.btn.btn-c.btn-c-header--full:hover {
   border-radius: 14px !important;
   background:
     linear-gradient(130deg, transparent 0 69%, rgba(255, 218, 112, 0.2) 69.2% 70%, transparent 70.2%),
-    linear-gradient(110deg, transparent 0 77%, #7e5610 77.2%, #f8dc82 84%, #a66f0d 91%, #f6d978 100%),
+    linear-gradient(110deg, transparent 0 80%, #7e5610 77.2%, #f8dc82 84%, #a66f0d 91%, #f6d978 100%),
     radial-gradient(circle at 15% 0%, #123957 0, #071a2f 44%, #03101e 72%) !important;
   box-shadow:
     0 3px 7px rgba(4, 17, 31, 0.32),
@@ -647,7 +647,7 @@ a.btn.btn-c.btn-c-header--full:hover {
 
 .prose a.btn-lux[data-icon="new"]::after {
   content: "NEW";
-  font-size: 1rem;
+  font-size: 0.5rem;
 }
 
 .prose a.btn-lux[data-icon="btc"]::after {
@@ -764,22 +764,22 @@ a.btn.btn-c.btn-c-header--full:hover {
   .prose a.btn-lux,
   .prose a.btn.btn-lux {
     min-height: 76px;
-    padding: 1rem 3.65rem 1rem 4.2rem !important;
+    padding: 1rem 3rem 1rem 3.5rem !important;
     border-radius: 10px !important;
-    font-size: clamp(1.1rem, 4vw, 1.2rem) !important;
+    font-size: clamp(0.85rem, 1.2vw, 1.1rem) !important;
   }
 
   .prose a.btn-lux::after {
     left: 0.65rem;
-    width: 45px;
-    height: 45px;
+    width: 35px;
+    height: 35px;
     border-width: 2px;
   }
 
   .prose a.btn-lux::before {
     right: 0.65rem;
-    width: 35px;
-    height: 35px;
+    width: 32px;
+    height: 32px;
   }
 }
 
