@@ -20,6 +20,7 @@ export default function ButtonIconPicker({ buttonText, value, customIconUrl, onC
   const [deletingKey, setDeletingKey] = useState("");
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
+  const [imagePrompt, setImagePrompt] = useState("");
   const visiblePresets = useMemo(
     () => BUTTON_ICON_PRESETS.filter((preset) => !hiddenKeys.includes(preset.value)),
     [hiddenKeys],
@@ -74,8 +75,8 @@ export default function ButtonIconPicker({ buttonText, value, customIconUrl, onC
   };
 
   const generateIcon = async () => {
-    if (!buttonText.trim()) {
-      setError("先にボタンテキストを入力してください");
+    if (!imagePrompt.trim() && !buttonText.trim()) {
+      setError("作りたいイメージ、またはボタンテキストを入力してください");
       return;
     }
     setGenerating(true);
@@ -85,7 +86,10 @@ export default function ButtonIconPicker({ buttonText, value, customIconUrl, onC
       const res = await fetch("/api/generate-button-icon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: buttonText.trim() }),
+        body: JSON.stringify({
+          text: buttonText.trim(),
+          imagePrompt: imagePrompt.trim(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -160,6 +164,26 @@ export default function ButtonIconPicker({ buttonText, value, customIconUrl, onC
         </button>
       )}
 
+      <div className="mt-2">
+        <label htmlFor="button-icon-image-prompt" className="mb-1 block text-xs font-semibold text-slate-600">
+          作りたいアイコンのイメージ
+          <span className="ml-1 font-normal text-slate-400">（任意）</span>
+        </label>
+        <textarea
+          id="button-icon-image-prompt"
+          value={imagePrompt}
+          onChange={(e) => setImagePrompt(e.target.value)}
+          maxLength={500}
+          rows={2}
+          placeholder="例：未来的なAIチップと回路。知的で先進的な印象"
+          disabled={generating}
+          className="block w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-700 outline-none transition-colors placeholder:text-slate-300 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-wait disabled:bg-slate-50"
+        />
+        <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
+          空欄の場合は、上のボタンテキストを参考に生成します。
+        </p>
+      </div>
+
       <button
         type="button"
         onClick={generateIcon}
@@ -167,7 +191,7 @@ export default function ButtonIconPicker({ buttonText, value, customIconUrl, onC
         className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100 disabled:cursor-wait disabled:opacity-60"
       >
         {generating ? <FiRefreshCw className="animate-spin" /> : <FiZap />}
-        {generating ? "GPT Image 2で生成中…" : customIconUrl ? "文章から別のアイコンを再生成" : "文章からAIアイコンを生成"}
+        {generating ? "GPT Image 2で生成中…" : customIconUrl ? "別のAIアイコンを再生成" : "AIアイコンを生成"}
       </button>
       <p className="mt-1 text-[10px] text-slate-400">生成ごとにOpenAI APIの利用料金が発生します。</p>
       {error && <p className="mt-1 text-[10px] text-red-600">{error}</p>}

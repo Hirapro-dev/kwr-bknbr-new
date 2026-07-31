@@ -554,6 +554,11 @@ a.btn.btn-c.btn-c-header--full:hover {
 /* ---- 添付デザイン準拠: 濃紺×メタリックゴールド (btn-lux) ---- */
 .prose a.btn-lux,
 .prose a.btn.btn-lux {
+  --lux-deep: #03101e;
+  --lux-base: #071a2f;
+  --lux-glow: #123957;
+  --lux-accent-deep: #7e5610;
+  --lux-accent-bright: #f8dc82;
   isolation: isolate;
   position: relative;
   display: block !important;
@@ -567,8 +572,8 @@ a.btn.btn-c.btn-c-header--full:hover {
   border-radius: 14px !important;
   background:
     linear-gradient(130deg, transparent 0 69%, rgba(255, 218, 112, 0.2) 69.2% 70%, transparent 70.2%),
-    linear-gradient(110deg, transparent 0 80%, #7e5610 77.2%, #f8dc82 84%, #a66f0d 91%, #f6d978 100%),
-    radial-gradient(circle at 15% 0%, #123957 0, #071a2f 44%, #03101e 72%) !important;
+    linear-gradient(110deg, transparent 0 80%, var(--lux-accent-deep) 77.2%, var(--lux-accent-bright) 84%, #a66f0d 91%, #f6d978 100%),
+    radial-gradient(circle at 15% 0%, var(--lux-glow) 0, var(--lux-base) 44%, var(--lux-deep) 72%) !important;
   box-shadow:
     0 3px 7px rgba(4, 17, 31, 0.32),
     inset 0 0 0 1px rgba(255, 241, 174, 0.42),
@@ -583,6 +588,15 @@ a.btn.btn-c.btn-c-header--full:hover {
   transition: filter 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
+/* ---- 銘柄別: 暗いイメージカラー × 共通メタリックゴールド ---- */
+.prose a.btn.btn-lux-ai { --lux-deep: #090819; --lux-base: #100f2d; --lux-glow: #50358c; }
+.prose a.btn.btn-lux-gold { --lux-deep: #120b03; --lux-base: #231708; --lux-glow: #6b4714; }
+.prose a.btn.btn-lux-kioxia { --lux-deep: #140309; --lux-base: #260812; --lux-glow: #7d233b; }
+.prose a.btn.btn-lux-btc { --lux-deep: #160803; --lux-base: #281104; --lux-glow: #8d3f0b; }
+.prose a.btn.btn-lux-xrp { --lux-deep: #030d0f; --lux-base: #071719; --lux-glow: #1d5b62; }
+.prose a.btn.btn-lux-ada { --lux-deep: #030a18; --lux-base: #07152e; --lux-glow: #1c4f9a; }
+.prose a.btn.btn-lux-wellness { --lux-deep: #03100c; --lux-base: #071f19; --lux-glow: #1d644b; }
+
 /* 左の円形チャートシンボル */
 .prose a.btn-lux::after {
   content: "";
@@ -595,7 +609,7 @@ a.btn.btn-c.btn-c-header--full:hover {
   transform: translateY(-50%);
   border: 3px solid #dfb958;
   border-radius: 50%;
-  background-color: #071a2f;
+  background-color: var(--lux-base);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' fill='none' stroke='%23f4d477' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 36V27M20 36V21M30 36V15M40 36V9'/%3E%3Cpath d='m8 20 10-8 9 5L40 5'/%3E%3Cpath d='M34 5h6v6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center;

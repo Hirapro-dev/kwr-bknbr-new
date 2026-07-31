@@ -15,16 +15,27 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const text = typeof body.text === "string" ? body.text.trim().slice(0, 200) : "";
-    if (!text) {
-      return NextResponse.json({ error: "ボタンテキストを入力してください" }, { status: 400 });
+    const imagePrompt =
+      typeof body.imagePrompt === "string" ? body.imagePrompt.trim().slice(0, 500) : "";
+    if (!imagePrompt && !text) {
+      return NextResponse.json(
+        { error: "作りたいイメージ、またはボタンテキストを入力してください" },
+        { status: 400 }
+      );
     }
+
+    // 入力されたイメージを優先し、空欄の場合だけボタンコピーを生成テーマに使う。
+    const iconTheme = imagePrompt || text;
+    const themeSource = imagePrompt
+      ? "Create one premium financial-media icon based on the following requested visual concept:"
+      : "Create one premium financial-media icon inspired by the following Japanese button text:";
 
     const client = new OpenAI({ apiKey });
     const response = await client.images.generate({
       model: "gpt-image-2",
       prompt: [
-        "Create one premium financial-media icon inspired by the following Japanese button text:",
-        `「${text}」`,
+        themeSource,
+        `「${iconTheme}」`,
         "Design requirements:",
         "- one simple symbolic object only, centered",
         "- elegant metallic gold line art with subtle gold highlights",

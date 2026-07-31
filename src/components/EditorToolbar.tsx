@@ -91,8 +91,17 @@ const BLOCK_COLORS = [
   { label: "グレー", border: "#6b7280", bg: "#f9fafb", text: "#374151" },
 ];
 
-const BUTTON_COLORS = [
+export const BUTTON_COLORS = [
   { label: "紺×ゴールド", bg: "#071a2f", gradient: "linear-gradient(115deg, #06172a 0%, #0b2741 68%, #d8a62f 100%)", cls: "btn-lux" },
+  { label: "AI", bg: "#100f2d", gradient: "linear-gradient(115deg, #100f2d 0%, #2b1d52 68%, #d8a62f 100%)", cls: "btn-lux-ai" },
+  { label: "ゴールド", bg: "#231708", gradient: "linear-gradient(115deg, #231708 0%, #50350f 68%, #d8a62f 100%)", cls: "btn-lux-gold" },
+  // 【要確認】キオクシアは公式ロゴの赤を、金が映える深いワインレッドへ調整している。
+  { label: "キオクシア", bg: "#260812", gradient: "linear-gradient(115deg, #260812 0%, #5b1529 68%, #d8a62f 100%)", cls: "btn-lux-kioxia" },
+  { label: "ビットコイン", bg: "#281104", gradient: "linear-gradient(115deg, #281104 0%, #60300a 68%, #d8a62f 100%)", cls: "btn-lux-btc" },
+  { label: "XRP", bg: "#071719", gradient: "linear-gradient(115deg, #071719 0%, #164047 68%, #d8a62f 100%)", cls: "btn-lux-xrp" },
+  { label: "ADA", bg: "#07152e", gradient: "linear-gradient(115deg, #07152e 0%, #17396e 68%, #d8a62f 100%)", cls: "btn-lux-ada" },
+  // 【要確認】ウェルネスは専用の公式色指定がないため、健康・再生を表す深緑を採用している。
+  { label: "ウェルネス", bg: "#071f19", gradient: "linear-gradient(115deg, #071f19 0%, #174936 68%, #d8a62f 100%)", cls: "btn-lux-wellness" },
   { label: "ブルー", bg: "#1e40af", gradient: "linear-gradient(to right, #007adf, #00ecbc)", cls: "btn-c" },
   { label: "ブラック", bg: "#111827", gradient: "linear-gradient(to right, #1f2937, #374151, #1f2937)", cls: "btn-k" },
   { label: "グリーン", bg: "#16a34a", gradient: "linear-gradient(to right, #38a169, #48bb78, #68d391)", cls: "btn-g" },

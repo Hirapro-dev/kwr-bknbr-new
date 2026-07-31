@@ -6,7 +6,7 @@ import Image from "next/image";
 import { FiSave, FiEye, FiArrowLeft, FiUploadCloud, FiClock } from "react-icons/fi";
 import { compressAndUpload } from "@/lib/upload";
 import { prettyPrintHtml, normalizeHtmlForVisual } from "@/lib/editor-html";
-import EditorToolbar from "@/components/EditorToolbar";
+import EditorToolbar, { BUTTON_COLORS } from "@/components/EditorToolbar";
 import ThumbnailGenerator from "@/components/ThumbnailGenerator";
 import LineImageGenerator from "@/components/LineImageGenerator";
 import ButtonIconPicker from "@/components/ButtonIconPicker";
@@ -463,13 +463,8 @@ export default function NewPost() {
             setButtonIconUrl(suggested.imageUrl);
           }
         }
-        if (cls.includes("btn-lux")) setButtonColor(JSON.stringify({ cls: "btn-lux" }));
-        else if (cls.includes("btn-c")) setButtonColor(JSON.stringify({ cls: "btn-c" }));
-        else if (cls.includes("btn-k")) setButtonColor(JSON.stringify({ cls: "btn-k" }));
-        else if (cls.includes("btn-r")) setButtonColor(JSON.stringify({ cls: "btn-r" }));
-        else if (cls.includes("btn-g")) setButtonColor(JSON.stringify({ cls: "btn-g" }));
-        else if (cls.includes("btn-o")) setButtonColor(JSON.stringify({ cls: "btn-o" }));
-        else if (cls.includes("btn-p")) setButtonColor(JSON.stringify({ cls: "btn-p" }));
+        const matchedColor = BUTTON_COLORS.find((color) => cls.split(/\s+/).includes(color.cls));
+        if (matchedColor) setButtonColor(JSON.stringify({ cls: matchedColor.cls }));
         else if (styleBg) setButtonColor(styleBg.split(/[\s,]+/)[0] || "#1e40af");
       }
     }
@@ -492,7 +487,9 @@ export default function NewPost() {
     let btnClass = "btn";
     try {
       const parsed = JSON.parse(buttonColor);
-      if (parsed.cls) btnClass = `btn ${parsed.cls}`;
+      if (parsed.cls) btnClass = parsed.cls.startsWith("btn-lux-")
+        ? `btn btn-lux ${parsed.cls}`
+        : `btn ${parsed.cls}`;
     } catch { /* legacy: plain color string */ }
     const iconAttr = btnClass.includes("btn-lux") ? ` data-icon="${buttonIcon}"` : "";
     const escapedIconUrl = buttonIconUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -838,16 +835,8 @@ export default function NewPost() {
               <input type="url" value={buttonUrl} onChange={(e) => setButtonUrl(e.target.value)} placeholder="リンク先URL" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:border-blue-500" />
               <div className="mb-3">
                 <label className="block text-xs text-slate-500 mb-1.5">ボタン色</label>
-                <div className="flex gap-2">
-                  {[
-                    { label: "紺×ゴールド", gradient: "linear-gradient(115deg, #06172a 0%, #0b2741 68%, #d8a62f 100%)", cls: "btn-lux" },
-                    { label: "ブルー", gradient: "linear-gradient(to right, #007adf, #00ecbc)", cls: "btn-c" },
-                    { label: "ブラック", gradient: "linear-gradient(to right, #1f2937, #374151, #1f2937)", cls: "btn-k" },
-                    { label: "グリーン", gradient: "linear-gradient(to right, #38a169, #48bb78, #68d391)", cls: "btn-g" },
-                    { label: "レッド", gradient: "linear-gradient(to right, #e53e3e, #f56565, #fc8181)", cls: "btn-r" },
-                    { label: "オレンジ", gradient: "linear-gradient(to right, #dd6b20, #ed8936, #f6ad55)", cls: "btn-o" },
-                    { label: "パープル", gradient: "linear-gradient(to right, #805ad5, #9f7aea, #b794f4)", cls: "btn-p" },
-                  ].map((c) => {
+                <div className="grid grid-cols-4 gap-2">
+                  {BUTTON_COLORS.map((c) => {
                     const isActive = (() => { try { return JSON.parse(buttonColor).cls === c.cls; } catch { return false; } })();
                     return (
                       <button key={c.cls} type="button" title={c.label}
@@ -858,7 +847,7 @@ export default function NewPost() {
                   })}
                 </div>
               </div>
-              {(() => { try { return JSON.parse(buttonColor).cls === "btn-lux"; } catch { return false; } })() && (
+              {(() => { try { return JSON.parse(buttonColor).cls.includes("btn-lux"); } catch { return false; } })() && (
                 <ButtonIconPicker
                   buttonText={buttonText}
                   value={buttonIcon}
