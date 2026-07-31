@@ -591,6 +591,7 @@ a.btn.btn-c.btn-c-header--full:hover {
 /* ---- 銘柄別: 暗いイメージカラー × 共通メタリックゴールド ---- */
 .prose a.btn.btn-lux-ai { --lux-deep: #090819; --lux-base: #100f2d; --lux-glow: #50358c; }
 .prose a.btn.btn-lux-gold { --lux-deep: #120b03; --lux-base: #231708; --lux-glow: #6b4714; }
+.prose a.btn.btn-lux-black-gray { --lux-deep: #030405; --lux-base: #08090b; --lux-glow: #3b3f46; }
 .prose a.btn.btn-lux-kioxia { --lux-deep: #140309; --lux-base: #260812; --lux-glow: #7d233b; }
 .prose a.btn.btn-lux-btc { --lux-deep: #160803; --lux-base: #281104; --lux-glow: #8d3f0b; }
 .prose a.btn.btn-lux-xrp { --lux-deep: #030d0f; --lux-base: #071719; --lux-glow: #1d5b62; }

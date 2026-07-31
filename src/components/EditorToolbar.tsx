@@ -95,6 +95,7 @@ export const BUTTON_COLORS = [
   { label: "紺×ゴールド", bg: "#071a2f", gradient: "linear-gradient(115deg, #06172a 0%, #0b2741 68%, #d8a62f 100%)", cls: "btn-lux" },
   { label: "AI", bg: "#100f2d", gradient: "linear-gradient(115deg, #100f2d 0%, #2b1d52 68%, #d8a62f 100%)", cls: "btn-lux-ai" },
   { label: "ゴールド", bg: "#231708", gradient: "linear-gradient(115deg, #231708 0%, #50350f 68%, #d8a62f 100%)", cls: "btn-lux-gold" },
+  { label: "黒×グレー", bg: "#08090b", gradient: "linear-gradient(115deg, #08090b 0%, #343840 68%, #d8a62f 100%)", cls: "btn-lux-black-gray" },
   // 【要確認】キオクシアは公式ロゴの赤を、金が映える深いワインレッドへ調整している。
   { label: "キオクシア", bg: "#260812", gradient: "linear-gradient(115deg, #260812 0%, #5b1529 68%, #d8a62f 100%)", cls: "btn-lux-kioxia" },
   { label: "ビットコイン", bg: "#281104", gradient: "linear-gradient(115deg, #281104 0%, #60300a 68%, #d8a62f 100%)", cls: "btn-lux-btc" },
