@@ -677,7 +677,7 @@ a.btn.btn-c.btn-c-header--full:hover {
 
 .prose a.btn-lux[data-icon-url]::after {
   background-image: var(--button-icon-image);
-  background-size: 72%;
+  background-size: 100%;
 }
 
 /* 投稿ダイアログ内のアイコン見本 */
