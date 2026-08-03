@@ -596,6 +596,10 @@ a.btn.btn-c.btn-c-header--full:hover {
 .prose a.btn.btn-lux-btc { --lux-deep: #160803; --lux-base: #281104; --lux-glow: #8d3f0b; }
 .prose a.btn.btn-lux-xrp { --lux-deep: #030d0f; --lux-base: #071719; --lux-glow: #1d5b62; }
 .prose a.btn.btn-lux-ada { --lux-deep: #030a18; --lux-base: #07152e; --lux-glow: #1c4f9a; }
+/* ETH: イーサリアムのペリウィンクル(#627EEA)に寄せた藍紫 */
+.prose a.btn.btn-lux-eth { --lux-deep: #070a18; --lux-base: #131a3c; --lux-glow: #4a58b8; }
+/* SOL: ソラナの紫→緑のグラデーションを、紫のベース×緑の光で表現する */
+.prose a.btn.btn-lux-sol { --lux-deep: #08040f; --lux-base: #180b2d; --lux-glow: #1f9e7d; }
 .prose a.btn.btn-lux-wellness { --lux-deep: #03100c; --lux-base: #071f19; --lux-glow: #1d644b; }
 
 /* 左の円形チャートシンボル */

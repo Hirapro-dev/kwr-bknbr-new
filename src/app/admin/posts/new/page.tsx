@@ -835,14 +835,20 @@ export default function NewPost() {
               <input type="url" value={buttonUrl} onChange={(e) => setButtonUrl(e.target.value)} placeholder="リンク先URL" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:border-blue-500" />
               <div className="mb-3">
                 <label className="block text-xs text-slate-500 mb-1.5">ボタン色</label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {BUTTON_COLORS.map((c) => {
                     const isActive = (() => { try { return JSON.parse(buttonColor).cls === c.cls; } catch { return false; } })();
                     return (
                       <button key={c.cls} type="button" title={c.label}
                         onClick={() => setButtonColor(JSON.stringify({ cls: c.cls }))}
-                        className={`w-8 h-8 rounded-lg border-2 transition-all ${isActive ? "border-blue-500 scale-110 ring-2 ring-blue-200" : "border-slate-200 hover:scale-105"}`}
-                        style={{ background: c.gradient }} />
+                        className={`flex min-w-0 flex-col items-center gap-1 rounded-lg border p-1.5 text-[10px] transition-colors ${
+                          isActive
+                            ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-100"
+                            : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                        }`}>
+                        <span className="h-7 w-full rounded-md" style={{ background: c.gradient }} aria-hidden="true" />
+                        <span className="leading-tight">{c.label}</span>
+                      </button>
                     );
                   })}
                 </div>

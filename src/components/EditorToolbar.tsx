@@ -93,16 +93,16 @@ const BLOCK_COLORS = [
 
 export const BUTTON_COLORS = [
   { label: "紺×ゴールド", bg: "#071a2f", gradient: "linear-gradient(115deg, #06172a 0%, #0b2741 68%, #d8a62f 100%)", cls: "btn-lux" },
-  { label: "AI", bg: "#100f2d", gradient: "linear-gradient(115deg, #100f2d 0%, #2b1d52 68%, #d8a62f 100%)", cls: "btn-lux-ai" },
-  { label: "ゴールド", bg: "#231708", gradient: "linear-gradient(115deg, #231708 0%, #50350f 68%, #d8a62f 100%)", cls: "btn-lux-gold" },
+  { label: "濃紫×金", bg: "#100f2d", gradient: "linear-gradient(115deg, #100f2d 0%, #2b1d52 68%, #d8a62f 100%)", cls: "btn-lux-ai" },
+  { label: "ブラウン×金", bg: "#231708", gradient: "linear-gradient(115deg, #231708 0%, #50350f 68%, #d8a62f 100%)", cls: "btn-lux-gold" },
   { label: "黒×グレー", bg: "#08090b", gradient: "linear-gradient(115deg, #08090b 0%, #343840 68%, #d8a62f 100%)", cls: "btn-lux-black-gray" },
-  // 【要確認】キオクシアは公式ロゴの赤を、金が映える深いワインレッドへ調整している。
-  { label: "キオクシア", bg: "#260812", gradient: "linear-gradient(115deg, #260812 0%, #5b1529 68%, #d8a62f 100%)", cls: "btn-lux-kioxia" },
-  { label: "ビットコイン", bg: "#281104", gradient: "linear-gradient(115deg, #281104 0%, #60300a 68%, #d8a62f 100%)", cls: "btn-lux-btc" },
-  { label: "XRP", bg: "#071719", gradient: "linear-gradient(115deg, #071719 0%, #164047 68%, #d8a62f 100%)", cls: "btn-lux-xrp" },
-  { label: "ADA", bg: "#07152e", gradient: "linear-gradient(115deg, #07152e 0%, #17396e 68%, #d8a62f 100%)", cls: "btn-lux-ada" },
-  // 【要確認】ウェルネスは専用の公式色指定がないため、健康・再生を表す深緑を採用している。
-  { label: "ウェルネス", bg: "#071f19", gradient: "linear-gradient(115deg, #071f19 0%, #174936 68%, #d8a62f 100%)", cls: "btn-lux-wellness" },
+  { label: "ワイン×金", bg: "#260812", gradient: "linear-gradient(115deg, #260812 0%, #5b1529 68%, #d8a62f 100%)", cls: "btn-lux-kioxia" },
+  { label: "濃オレンジ×金", bg: "#281104", gradient: "linear-gradient(115deg, #281104 0%, #60300a 68%, #d8a62f 100%)", cls: "btn-lux-btc" },
+  { label: "青緑×金", bg: "#071719", gradient: "linear-gradient(115deg, #071719 0%, #164047 68%, #d8a62f 100%)", cls: "btn-lux-xrp" },
+  { label: "濃青×金", bg: "#07152e", gradient: "linear-gradient(115deg, #07152e 0%, #17396e 68%, #d8a62f 100%)", cls: "btn-lux-ada" },
+  { label: "藍紫×金", bg: "#131a3c", gradient: "linear-gradient(115deg, #131a3c 0%, #2a3675 68%, #d8a62f 100%)", cls: "btn-lux-eth" },
+  { label: "紫×緑×金", bg: "#180b2d", gradient: "linear-gradient(115deg, #180b2d 0%, #2c6f5e 68%, #d8a62f 100%)", cls: "btn-lux-sol" },
+  { label: "深緑×金", bg: "#071f19", gradient: "linear-gradient(115deg, #071f19 0%, #174936 68%, #d8a62f 100%)", cls: "btn-lux-wellness" },
   { label: "ブルー", bg: "#1e40af", gradient: "linear-gradient(to right, #007adf, #00ecbc)", cls: "btn-c" },
   { label: "ブラック", bg: "#111827", gradient: "linear-gradient(to right, #1f2937, #374151, #1f2937)", cls: "btn-k" },
   { label: "グリーン", bg: "#16a34a", gradient: "linear-gradient(to right, #38a169, #48bb78, #68d391)", cls: "btn-g" },
@@ -111,38 +111,19 @@ export const BUTTON_COLORS = [
   { label: "パープル", bg: "#7c3aed", gradient: "linear-gradient(to right, #805ad5, #9f7aea, #b794f4)", cls: "btn-p" },
 ];
 
-/** ボタン色選択ポップアップ（ドロップダウンなし、直接カラーパレットを表示） */
-function ButtonColorPopup({ onSelect, dark = false }: { onSelect: (color: string) => void; dark?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
+/** ボタンリンク設定ダイアログを直接開く。色選択はダイアログ内に集約する。 */
+function ButtonDialogTrigger({ onClick, dark = false }: { onClick: () => void; dark?: boolean }) {
   return (
-    <div ref={ref} className="relative">
-      <button onClick={() => setOpen(!open)} className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors text-xs ${dark ? "text-slate-300 hover:text-white hover:bg-slate-600" : "text-slate-500 hover:text-blue-600 hover:bg-blue-50"}`} title="ボタン">
-        <ButtonIcon size={14} /><FiChevronDown size={12} />
-      </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 p-2 min-w-[210px]">
-          <div className="grid grid-cols-3 gap-1.5">
-            {BUTTON_COLORS.map((c) => (
-              <button
-                key={c.label}
-                onClick={() => { onSelect(JSON.stringify({ bg: c.bg, gradient: c.gradient, cls: c.cls })); setOpen(false); }}
-                className="flex flex-col items-center gap-1 p-1.5 rounded hover:bg-slate-50 transition-colors"
-                title={c.label}
-              >
-                <span className="w-full h-5 rounded" style={{ background: c.gradient || c.bg }} />
-                <span className="text-[10px] text-slate-500">{c.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors text-xs ${
+        dark ? "text-slate-300 hover:text-white hover:bg-slate-600" : "text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+      }`}
+      title="ボタンリンク"
+    >
+      <ButtonIcon size={14} />
+    </button>
   );
 }
 
@@ -200,7 +181,7 @@ export default function EditorToolbar({
                     </DropdownItem>
                   ))}
                 </Dropdown>
-                <ButtonColorPopup onSelect={onInsertButton} dark />
+                <ButtonDialogTrigger onClick={onInsertButton} dark />
               </>
             ) : (
               <>
@@ -245,7 +226,7 @@ export default function EditorToolbar({
                     </DropdownItem>
                   ))}
                 </Dropdown>
-                <ButtonColorPopup onSelect={onInsertButton} />
+                <ButtonDialogTrigger onClick={onInsertButton} />
                 {customEditors.length > 0 && customEditors.map((ce) => (
                   <button key={ce.id} onClick={() => onInsertCustomHtml(ce.html)} className={TB} title={ce.name}>
                     <span className="text-sm">{ce.icon || "⚡"}</span>
@@ -298,7 +279,7 @@ export default function EditorToolbar({
                 </DropdownItem>
               ))}
             </Dropdown>
-            <ButtonColorPopup onSelect={onInsertButton} dark />
+            <ButtonDialogTrigger onClick={onInsertButton} dark />
             {customEditors.length > 0 && (
               <>
                 <div className="w-px h-5 bg-slate-300 mx-1" />
@@ -381,8 +362,8 @@ export default function EditorToolbar({
               ))}
             </Dropdown>
 
-            {/* ボタン（色選択ポップアップ） */}
-            <ButtonColorPopup onSelect={onInsertButton} />
+            {/* ボタンリンク設定。色選択はダイアログ内で行う */}
+            <ButtonDialogTrigger onClick={onInsertButton} />
 
             {/* スマホでここ改行（スマホ表示時のみ改行される位置を挿入） */}
             <button onClick={() => onInsertCustomHtml('<br class="sp-only">')} className={TB} title="スマホでここ改行（スマホ表示時のみこの位置で改行）">
