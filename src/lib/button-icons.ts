@@ -26,6 +26,26 @@ export const BUTTON_ICON_PRESETS: {
   { value: "ai-bubble", label: "AIバブル", imageUrl: "/button-icons/ai-bubble.png" },
 ];
 
+/**
+ * AI生成して選択一覧に登録したアイコン（DB保存）。
+ * 記事HTMLにはプリセットと同じく data-icon="custom" + data-icon-url で埋め込むため、
+ * 記事側の描画処理は変更不要。
+ */
+export type SavedButtonIcon = {
+  key: string;
+  label: string;
+  imageUrl: string;
+  order: number;
+};
+
+/** 一覧に表示できる名前かを判定する（空文字・長すぎる名前を弾く） */
+export const SAVED_ICON_LABEL_MAX = 20;
+
+export function isValidSavedIconLabel(label: string): boolean {
+  const trimmed = label.trim();
+  return trimmed.length > 0 && trimmed.length <= SAVED_ICON_LABEL_MAX;
+}
+
 /** 既存ボタンの文章から、標準アイコンを決定論的に選ぶ */
 export function suggestButtonIcon(text: string) {
   const rules: { pattern: RegExp; value: ButtonIconPreset }[] = [

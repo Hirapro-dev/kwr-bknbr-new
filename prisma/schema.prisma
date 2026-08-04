@@ -166,3 +166,15 @@ model HiddenButtonIcon {
 
   @@map("hidden_button_icons")
 }
+
+// AIで生成し、ボタンアイコンの選択一覧に登録したアイコン
+// コード側のプリセット（BUTTON_ICON_PRESETS）と違い、管理画面から追加・削除できる
+model ButtonIcon {
+  key       String   @id // "saved-" で始まる自動採番キー（プリセットのvalueと衝突させない）
+  label     String // 一覧に表示する名前
+  imageUrl  String // S3上の画像URL
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("button_icons")
+}
