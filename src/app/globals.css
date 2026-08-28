@@ -125,9 +125,10 @@ a.btn.btn-c.btn-c-header--full:hover {
   font-size: 20px !important;
   font-weight: 800 !important;
   margin: 30px 0 !important;
-  padding-top: 0 !important;
+  padding-top: 15px !important;
   padding-bottom: 15px !important;
   line-height: 29.6px !important;
+  border-top: 2px solid #bbb !important;
   border-bottom: 2px solid #bbb !important;
 }
 .article-detail [data-article-content] h3 {
